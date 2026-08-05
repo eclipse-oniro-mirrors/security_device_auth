@@ -206,7 +206,6 @@ static int32_t GetPeerDevUserTypeFromDb(int32_t osAccountId, const char *groupId
     return peerUserType;
 }
 
-#ifdef DEVAUTH_ENABLE_OS_ACCOUNT_MULTI_PROFILE
 static int32_t GetPeerUdidFromDb(int32_t osAccountId, const char *groupId, const char *peerAuthId, char **peerUdid)
 {
     TrustedDeviceEntry *deviceEntry = CreateDeviceEntry();
@@ -228,10 +227,11 @@ static int32_t GetPeerUdidFromDb(int32_t osAccountId, const char *groupId, const
     DestroyDeviceEntry(deviceEntry);
     return HC_SUCCESS;
 }
-#endif
 
-static int32_t DelPeerDevAndKeyInfo(int32_t osAccountId, const char *groupId, const char *peerAuthId)
+static int32_t DelPeerDevAndKeyInfo(int32_t osAccountId, const char *groupId, const char *peerAuthId,
+    const char *peerUdid)
 {
+    (void)peerUdid;
     int32_t peerUserType = GetPeerDevUserTypeFromDb(osAccountId, groupId, peerAuthId);
     QueryDeviceParams queryDeviceParams = InitQueryDeviceParams();
     queryDeviceParams.groupId = groupId;
@@ -242,14 +242,7 @@ static int32_t DelPeerDevAndKeyInfo(int32_t osAccountId, const char *groupId, co
         return result;
     }
 #ifdef DEVAUTH_ENABLE_OS_ACCOUNT_MULTI_PROFILE
-    char *peerUdid = NULL;
-    result = GetPeerUdidFromDb(osAccountId, groupId, peerAuthId, &peerUdid);
-    if (result != HC_SUCCESS) {
-        return result;
-    }
-    bool isReferenced = IsDeviceExistInGroup(osAccountId, groupId, peerUdid);
-    HcFree(peerUdid);
-    if (isReferenced) {
+    if (IsDeviceExistInGroup(osAccountId, groupId, peerUdid)) {
         LOGI("Peer device still referenced by other users, do not delete key info.");
         return HC_SUCCESS;
     }
@@ -297,7 +290,7 @@ static int32_t DelAllPeerDevAndKeyInfo(int32_t osAccountId, const char *groupId)
         if (IsLocalDevice(StringGet(&entry->udid))) {
             continue;
         }
-        result = DelPeerDevAndKeyInfo(osAccountId, groupId, StringGet(&entry->authId));
+        result = DelPeerDevAndKeyInfo(osAccountId, groupId, StringGet(&entry->authId), StringGet(&entry->udid));
         if (result != HC_SUCCESS) {
             ClearDeviceEntryVec(&deviceEntryVec);
             return result;
@@ -395,9 +388,18 @@ static int32_t HandleLocalUnbind(int64_t requestId, const CJson *jsonParams,
         LOGE("Failed to get osAccountId from jsonParams!");
         return HC_ERR_JSON_GET;
     }
-    int result = DelPeerDevAndKeyInfo(osAccountId, groupId, peerAuthId);
-    if (result != HC_SUCCESS) {
+    char *peerUdid = NULL;
+    int32_t result = GetPeerUdidFromDb(osAccountId, groupId, peerAuthId, &peerUdid);
+    if (result != HC_SUCCESS && result != HC_ERR_DEVICE_NOT_EXIST) {
         return result;
+    }
+    if (result == HC_SUCCESS) {
+        result = DelPeerDevAndKeyInfo(osAccountId, groupId, peerAuthId, peerUdid);
+        HcFree(peerUdid);
+        if (result != HC_SUCCESS) {
+            LOGE("Failed to delete device and key!");
+            return result;
+        }
     }
     result = SaveOsAccountDb(osAccountId);
     if (result != HC_SUCCESS) {
