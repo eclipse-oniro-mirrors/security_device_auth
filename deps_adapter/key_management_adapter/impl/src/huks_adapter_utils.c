@@ -45,7 +45,8 @@ static uint32_t g_purposeToHksKeyPurpose[] = {
     HKS_KEY_PURPOSE_MAC,
     HKS_KEY_PURPOSE_DERIVE,
     HKS_KEY_PURPOSE_SIGN | HKS_KEY_PURPOSE_VERIFY,
-    HKS_KEY_PURPOSE_AGREE
+    HKS_KEY_PURPOSE_AGREE,
+    HKS_KEY_PURPOSE_ENCRYPT | HKS_KEY_PURPOSE_DECRYPT
 };
 
 static enum HksKeyAlg g_algToHksAlgorithm[] = {
