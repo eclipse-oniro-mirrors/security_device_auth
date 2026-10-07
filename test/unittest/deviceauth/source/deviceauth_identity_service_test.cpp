@@ -2039,25 +2039,6 @@ HWTEST_F(CredAuthTest, CredAuthTest002, TestSize.Level0)
     ca->processCredData(TEST_REQ_ID, (const uint8_t*)GenerateBindParams(), DATA_LEN, nullptr);
 }
 
-class CredFileEncPureTest : public testing::Test {
-public:
-    static void SetUpTestCase() {}
-    static void TearDownTestCase() {}
-    void SetUp() {}
-    void TearDown() {}
-};
-
-HWTEST_F(CredFileEncPureTest, CredFileEncPureTest001, TestSize.Level0)
-{
-    uint8_t legacy[] = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-    EXPECT_FALSE(IsCredFileEncrypted(legacy, sizeof(legacy)));
-    uint8_t enc[] = { 'D', 'A', 'E', '1', 0x01, 0x00 };
-    EXPECT_TRUE(IsCredFileEncrypted(enc, sizeof(enc)));
-    EXPECT_FALSE(IsCredFileEncrypted(nullptr, 0));
-    EXPECT_FALSE(IsCredFileEncrypted(enc, CRED_FILE_ENC_MAGIC_LEN - 1));
-    EXPECT_FALSE(IsCredFileEncrypted(legacy, CRED_FILE_ENC_MAGIC_LEN));
-}
-
 class CredFileEncryptionTest : public testing::Test {
 public:
     static void SetUpTestCase() {}
@@ -2071,55 +2052,29 @@ void CredFileEncryptionTest::SetUp()
     DeleteDatabase();
     int ret = InitDeviceAuthService();
     EXPECT_EQ(ret, IS_SUCCESS);
+    DeleteCredFileEncKey(DEFAULT_OS_ACCOUNT);
 }
 
 void CredFileEncryptionTest::TearDown()
 {
     DestroyDeviceAuthService();
     DeleteDatabase();
-}
-
-static bool ReadFileToBuffer(const char *path, uint8_t **buf, int *outLen)
-{
-    FileHandle file;
-    if (HcFileOpen(path, MODE_FILE_READ, &file) != 0) {
-        return false;
-    }
-    int sz = HcFileSize(file);
-    if (sz <= 0) {
-        HcFileClose(file);
-        return false;
-    }
-    uint8_t *data = static_cast<uint8_t *>(HcMalloc(sz, 0));
-    if (data == nullptr) {
-        HcFileClose(file);
-        return false;
-    }
-    int rd = HcFileRead(file, data, sz);
-    HcFileClose(file);
-    if (rd != sz) {
-        HcFree(data);
-        return false;
-    }
-    *buf = data;
-    *outLen = sz;
-    return true;
+    DeleteCredFileEncKey(DEFAULT_OS_ACCOUNT);
 }
 
 HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest001, TestSize.Level0)
 {
+    EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
     const char *plain = "plain credential tlv payload for round-trip";
     uint32_t plainLen = HcStrlen(plain);
     uint8_t *enc = nullptr;
     uint32_t encLen = 0;
-    int32_t ret = EncryptCredFileData(reinterpret_cast<const uint8_t *>(plain), plainLen, &enc, &encLen);
-    EXPECT_EQ(ret, IS_SUCCESS);
+    EXPECT_EQ(EncryptCredFileData(reinterpret_cast<const uint8_t *>(plain), plainLen,
+        DEFAULT_OS_ACCOUNT, &enc, &encLen), IS_SUCCESS);
     ASSERT_NE(enc, nullptr);
-    EXPECT_EQ(memcmp(enc, g_credFileEncMagic, CRED_FILE_ENC_MAGIC_LEN), 0);
-    EXPECT_GT(encLen, CRED_FILE_ENC_HEADER_LEN + AE_TAG_LEN);
+    EXPECT_GT(encLen, CRED_FILE_ENC_NONCE_LEN + AE_TAG_LEN);
     HcParcel parcel = CreateParcel(0, 0);
-    ret = DecryptCredFileDataToParcel(enc, encLen, &parcel);
-    EXPECT_EQ(ret, IS_SUCCESS);
+    EXPECT_EQ(DecryptCredFileDataToParcel(enc, encLen, DEFAULT_OS_ACCOUNT, &parcel), IS_SUCCESS);
     EXPECT_EQ(GetParcelDataSize(&parcel), plainLen);
     EXPECT_EQ(memcmp(reinterpret_cast<const uint8_t *>(GetParcelData(&parcel)), plain, plainLen), 0);
     DeleteParcel(&parcel);
@@ -2128,47 +2083,43 @@ HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest001, TestSize.Level0)
 
 HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest002, TestSize.Level0)
 {
-    int32_t ret = SaveOsAccountCredDb(DEFAULT_OS_ACCOUNT);
-    EXPECT_EQ(ret, IS_SUCCESS);
-    uint8_t *buf = nullptr;
-    int sz = 0;
-    ASSERT_TRUE(ReadFileToBuffer(TEST_CRED_DATA_PATH, &buf, &sz));
-    EXPECT_TRUE(IsCredFileEncrypted(buf, sz));
-    EXPECT_EQ(memcmp(buf, g_credFileEncMagic, CRED_FILE_ENC_MAGIC_LEN), 0);
-    HcFree(buf);
+    // rollback resistance: with key present, decrypting forged plaintext must FAIL (GCM tag mismatch)
+    EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
+    const char *forged = "forged plaintext tlv that is not valid ciphertext";
+    uint32_t forgedLen = HcStrlen(forged);
+    HcParcel parcel = CreateParcel(0, 0);
+    EXPECT_NE(DecryptCredFileDataToParcel(reinterpret_cast<const uint8_t *>(forged), forgedLen,
+        DEFAULT_OS_ACCOUNT, &parcel), IS_SUCCESS);
+    DeleteParcel(&parcel);
 }
 
 HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest003, TestSize.Level0)
 {
-    ASSERT_EQ(SaveOsAccountCredDb(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
-    uint8_t *enc = nullptr;
-    int encSz = 0;
-    ASSERT_TRUE(ReadFileToBuffer(TEST_CRED_DATA_PATH, &enc, &encSz));
-    ASSERT_TRUE(IsCredFileEncrypted(enc, encSz));
-    HcParcel plain = CreateParcel(0, 0);
-    ASSERT_EQ(DecryptCredFileDataToParcel(enc, encSz, &plain), IS_SUCCESS);
-    HcFree(enc);
-    uint32_t plainLen = GetParcelDataSize(&plain);
-    const uint8_t *plainData = reinterpret_cast<const uint8_t *>(GetParcelData(&plain));
-    FileHandle wf;
-    ASSERT_EQ(HcFileOpen(TEST_CRED_DATA_PATH, MODE_FILE_WRITE, &wf), 0);
-    EXPECT_EQ(HcFileWrite(wf, plainData, static_cast<int>(plainLen)), static_cast<int>(plainLen));
-    HcFileClose(wf);
-    DeleteParcel(&plain);
-    DestroyDeviceAuthService();
-    int ret = InitDeviceAuthService();
-    EXPECT_EQ(ret, IS_SUCCESS);
+    // init-only upgrade: save plaintext (no key) -> re-init -> load upgrades legacy -> key created
+    EXPECT_FALSE(CredFileEncKeyExist(DEFAULT_OS_ACCOUNT));
     EXPECT_EQ(SaveOsAccountCredDb(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
-    uint8_t *buf = nullptr;
-    int sz = 0;
-    ASSERT_TRUE(ReadFileToBuffer(TEST_CRED_DATA_PATH, &buf, &sz));
-    EXPECT_TRUE(IsCredFileEncrypted(buf, sz));
-    HcFree(buf);
+    EXPECT_FALSE(CredFileEncKeyExist(DEFAULT_OS_ACCOUNT));
+    DestroyDeviceAuthService();
+    EXPECT_EQ(InitDeviceAuthService(), IS_SUCCESS);
+    EXPECT_TRUE(CredFileEncKeyExist(DEFAULT_OS_ACCOUNT));
+    EXPECT_TRUE(IsOsAccountCredDataLoaded(DEFAULT_OS_ACCOUNT));
 }
 
 HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest004, TestSize.Level0)
 {
-    EXPECT_EQ(EnsureCredFileEncKeyExist(), IS_SUCCESS);
-    EXPECT_EQ(EnsureCredFileEncKeyExist(), IS_SUCCESS);
+    // save modes: no key -> plaintext; ensure key -> encrypted; reload -> decrypt ok
+    EXPECT_EQ(SaveOsAccountCredDb(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
+    EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
+    EXPECT_EQ(SaveOsAccountCredDb(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
+    DestroyDeviceAuthService();
+    EXPECT_EQ(InitDeviceAuthService(), IS_SUCCESS);
+    EXPECT_TRUE(IsOsAccountCredDataLoaded(DEFAULT_OS_ACCOUNT));
+}
+
+HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest005, TestSize.Level0)
+{
+    EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
+    EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
+    EXPECT_TRUE(CredFileEncKeyExist(DEFAULT_OS_ACCOUNT));
 }
 } // namespace

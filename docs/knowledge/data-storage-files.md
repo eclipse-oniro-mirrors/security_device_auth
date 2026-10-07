@@ -20,7 +20,7 @@
 | 文件名 | 目录 | 业务流程 | 读写点 |
 |---|---|---|---|
 | `hcgroup.dat` / `hcgroup<uid>.dat` / CE `<el2>/<uid>/deviceauth/hcgroup.dat` | DE `/data/service/el1/public/deviceauth` | 组/受信设备 TLV 库（仅 UDID/authId 标识与别名引用，密钥本体在 HUKS） | `group_data_manager.c`：`LoadOsAccountDb:518`/`SaveOsAccountDb:1694`/`InitDatabase:1860`/`ReadParcelFromFile:460`/`SaveParcelToFile:497`；路径三态 `GetOsAccountInfoPathCe:196`/`GetOsAccountInfoPathDe:210` 由 `IsOsAccountSupported():230` 选择；DE→CE 迁移合并 `:558-582` |
-| `hccredential.dat`/`hccredential<uid>.dat` | 同上 | 凭据元数据 TLV（算法/别名；密钥值本体在 HUKS）；**落盘为 AES-256-GCM 加密态**（见下"凭据文件加密"） | `credential_data_manager.c`：`LoadOsAccountCredDb:418`/`LoadDevAuthCredDb:522`（扫 `hccredential*.dat:538-540`）/`SaveOsAccountCredDb:1367`/`InitCredDatabase:1518`（含 `EnsureCredFileEncKeyExist`）；CE 路径 :159-166、DE :179-183；加解密 `EncryptCredFileData`/`DecryptCredFileDataToParcel`/`IsCredFileEncrypted` |
+| `hccredential.dat`/`hccredential<uid>.dat` | 同上 | 凭据元数据 TLV（算法/别名；密钥值本体在 HUKS）；**落盘为 AES-256-GCM 加密态**（见下"凭据文件加密"） | `credential_data_manager.c`：`LoadOsAccountCredDb`/`LoadDevAuthCredDb`/`SaveOsAccountCredDb`/`InitCredDatabase`；CE 路径 :159-166、DE :179-183；加解密 `EncryptCredFileData`/`DecryptCredFileDataToParcel`/`CredFileEncKeyExist`/`EnsureCredFileEncKeyExist`/`DeleteCredFileEncKey` |
 | `hcoperation.dat` | CE 为主 | API 操作审计记录 | `operation_data_manager.c`：路径 :182-188、`SaveParcelToFile:194`、`LoadOperations:325`、`InitOperationDataManager:735` |
 | `account_data_sym%d.dat` / `account_data_asy%d.dat` | `.../deviceauth/account` | 账号配对 token（JSON，仅 userId/deviceId 等非密钥标识） | `legacy/authenticators/src/account_related/creds_manager/sym_token_manager.c:66-92/181/228`；`asy_token_manager.c:138-164/301/348` |
 | `pseudonym_data.dat`/`<n>.dat` | `.../deviceauth/pseudonym` | 匿名 ID 记录 | `privacy_enhancement/src/pseudonym_manager.c:185-208/238` |
@@ -42,11 +42,16 @@
 
 ## 凭据文件加密（hccredential.dat）
 
-`credential_data_manager.c` 的 `SaveParcelToFile` 在写盘前对 TLV 明文做 AES-256-GCM 加密，`ReadParcelFromFile` 读盘后按 magic 判别解密。仅 standard/small 经此路径；mini `deviceauth_lite` 不受影响。
+`credential_data_manager.c` 对凭据 TLV 做 AES-256-GCM 加解密。仅 standard/small 经此路径；mini `deviceauth_lite` 不受影响。
 
-- **密钥**：HUKS 中进程级 AES-256 别名密钥，固定 keyAlias `DA_CRED_FILE_ENC_KEY`，DE 存储（`isDeStorage=true` + `DEFAULT_OS_ACCOUNT`），用途 `KEY_PURPOSE_KEY_ENCRYPT`（映射 `HKS_KEY_PURPOSE_ENCRYPT|HKS_KEY_PURPOSE_DECRYPT`，见 `huks_adapter_utils.c:44`）。`InitCredDatabase` 经 `EnsureCredFileEncKeyExist`：`checkKeyExist` 不存在则 `generateRandom(32)`+`importSymmetricKey` 后清零随机量；密钥跨 SA 重启保留，**不随 `DestroyCredDatabase` 删除**（解密存量文件所需）。密钥丢失 ⇒ 全部加密凭据文件不可解密。
-- **文件格式**（加密态）：`magic "DAE1"(4) | version(1)=0x01 | nonce(12) | ciphertext+AE_TAG(16 附尾)`；AAD = `magic+version`(5 字节)，绑定头完整性。常量集中在 `credential_data_manager.c:107-113`。
-- **升级兼容（前向，不降级）**：`ReadParcelFromFile` 比对前 4 字节，命中 magic 走 `DecryptCredFileDataToParcel`，否则视为 legacy 明文 TLV 直通 `ReadCredInfoFromParcel`（升级首启可读旧文件）；`SaveParcelToFile` 恒写加密态，故下一次保存即完成升级。降级场景旧版本读到 `DAE1` 因 tag≠`0x0001` 解码失败 → `LoadOsAccountCredDb` 静默 return，凭据缓存为空（符合"不降级"约定）。
+- **密钥（per-user）**：HUKS DE 域 per-user AES-256 别名密钥，keyAlias = `<osAccountId>_credential_alias`（`BuildCredFileEncKeyAlias`），DE 存储（`isDeStorage=true` + `DEFAULT_OS_ACCOUNT`），用途 `KEY_PURPOSE_KEY_ENCRYPT`（映射 `HKS_KEY_PURPOSE_ENCRYPT|HKS_KEY_PURPOSE_DECRYPT`，见 `huks_adapter_utils.c:44`）。`EnsureCredFileEncKeyExist`：`checkKeyExist` 不存在则 `generateRandom(32)`+`importSymmetricKey` 后清零随机量。密钥跨 SA 重启保留；`OnOsAccountRemoved` 经 `DeleteCredFileEncKey` 显式清理（DE 不随账号自动清除）。
+- **判别（回退攻击对抗）**：是否加密由 `CredFileEncKeyExist`（`checkKeyExist`）判定，**不靠文件头标识位**。判别信号在 HUKS 保护的密钥状态（文件系统级攻击者不可删），故攻击者用伪造明文替换已加密文件→SA 因 key 在而坚持解密→GCM tag 验不过→拒载（空缓存），无法回退/伪造信任。
+- **文件格式**（加密态）：`nonce(12) | ciphertext + AE_TAG(16 附尾)`（无 magic/version 头）；AAD = 固定串 `"hccredential.dat"`（绑定上下文）。常量集中在 `credential_data_manager.c` 顶部。
+- **生命周期（init-only-upgrade）**：
+  - **加载**（`LoadOsAccountCredDb`）：`CredFileEncKeyExist` 命中→`DecryptCredFileDataToParcel`（失败=篡改/密钥丢→拒载空缓存）；未命中→按 legacy 明文读 + **升级**（`EnsureCredFileEncKeyExist` 建密钥 + `SaveParcelToFile(encrypt=true)` 写加密，写失败 `DeleteCredFileEncKey` 回滚保不变量）。升级仅在此点。
+  - **运行时保存**（`SaveOsAccountCredDb`）：`CredFileEncKeyExist` 命中→加密写；未命中→**明文写**（不建密钥、不升级）。新用户首存走明文，下次加载升级。
+  - 不变式 `keyExists ⟺ fileEncrypted` 由加载升级点单一维持。
+- **升级兼容（前向，不降级）**：legacy 明文文件首启可读（key 缺失→明文路径），加载即升级为加密；不降级（旧版本读到加密态因 TLV tag≠`0x0001` 解码失败→空缓存）。
 - **新增字段铁律不变**：加密只包裹整个 TLV 序列化产物，TLV 结构/tag/计数规则完全不变。
 
 ## 进程/权限
