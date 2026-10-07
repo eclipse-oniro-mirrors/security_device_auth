@@ -20,7 +20,7 @@
 | 文件名 | 目录 | 业务流程 | 读写点 |
 |---|---|---|---|
 | `hcgroup.dat` / `hcgroup<uid>.dat` / CE `<el2>/<uid>/deviceauth/hcgroup.dat` | DE `/data/service/el1/public/deviceauth` | 组/受信设备 TLV 库（仅 UDID/authId 标识与别名引用，密钥本体在 HUKS） | `group_data_manager.c`：`LoadOsAccountDb:518`/`SaveOsAccountDb:1694`/`InitDatabase:1860`/`ReadParcelFromFile:460`/`SaveParcelToFile:497`；路径三态 `GetOsAccountInfoPathCe:196`/`GetOsAccountInfoPathDe:210` 由 `IsOsAccountSupported():230` 选择；DE→CE 迁移合并 `:558-582` |
-| `hccredential.dat`/`hccredential<uid>.dat` | 同上 | 凭据元数据 TLV（算法/别名；密钥值本体在 HUKS） | `credential_data_manager.c`：`LoadOsAccountCredDb:418`/`LoadDevAuthCredDb:522`（扫 `hccredential*.dat:538-540`）/`SaveOsAccountCredDb:1367`/`InitCredDatabase:1518`；CE 路径 :159-166、DE :179-183 |
+| `hccredential.dat`/`hccredential<uid>.dat` | 同上 | 凭据元数据 TLV（算法/别名；密钥值本体在 HUKS）；**落盘为 AES-256-GCM 加密态**（见下"凭据文件加密"） | `credential_data_manager.c`：`LoadOsAccountCredDb:418`/`LoadDevAuthCredDb:522`（扫 `hccredential*.dat:538-540`）/`SaveOsAccountCredDb:1367`/`InitCredDatabase:1518`（含 `EnsureCredFileEncKeyExist`）；CE 路径 :159-166、DE :179-183；加解密 `EncryptCredFileData`/`DecryptCredFileDataToParcel`/`IsCredFileEncrypted` |
 | `hcoperation.dat` | CE 为主 | API 操作审计记录 | `operation_data_manager.c`：路径 :182-188、`SaveParcelToFile:194`、`LoadOperations:325`、`InitOperationDataManager:735` |
 | `account_data_sym%d.dat` / `account_data_asy%d.dat` | `.../deviceauth/account` | 账号配对 token（JSON，仅 userId/deviceId 等非密钥标识） | `legacy/authenticators/src/account_related/creds_manager/sym_token_manager.c:66-92/181/228`；`asy_token_manager.c:138-164/301/348` |
 | `pseudonym_data.dat`/`<n>.dat` | `.../deviceauth/pseudonym` | 匿名 ID 记录 | `privacy_enhancement/src/pseudonym_manager.c:185-208/238` |
@@ -39,6 +39,15 @@
 - **加字段六处同步**：entry 结构体成员（`group_data_manager.h:31-42`）→ TLV 结构体+计数（`:38-50`）→ tag 表（`:88-99`）→ 打包 `SetGroupElement`（`:790`）→ 解包 `GenerateGroupEntryFromTlv`（`:311`）→ 深拷贝 `GenerateGroupEntryFromEntry`（`:239`）；漏深拷贝 = AddGroup/Query 链路丢值。
 - 测试须含 round-trip（写入→`SaveOsAccountDb`→重载比对）与旧格式兼容用例（参照 `hc_tlv_parser_test.cpp:406/431`）；测试前先清残留库（参照 `save_trusted_info_test.cpp:85` `DeleteDatabase`）。
 - `frameworks/deviceauth_lite/`（旧 mini hichainsdk）走 HUKS 存储、不用本 TLV 库，持久化字段改动与其无关。
+
+## 凭据文件加密（hccredential.dat）
+
+`credential_data_manager.c` 的 `SaveParcelToFile` 在写盘前对 TLV 明文做 AES-256-GCM 加密，`ReadParcelFromFile` 读盘后按 magic 判别解密。仅 standard/small 经此路径；mini `deviceauth_lite` 不受影响。
+
+- **密钥**：HUKS 中进程级 AES-256 别名密钥，固定 keyAlias `DA_CRED_FILE_ENC_KEY`，DE 存储（`isDeStorage=true` + `DEFAULT_OS_ACCOUNT`），用途 `KEY_PURPOSE_KEY_ENCRYPT`（映射 `HKS_KEY_PURPOSE_ENCRYPT|HKS_KEY_PURPOSE_DECRYPT`，见 `huks_adapter_utils.c:44`）。`InitCredDatabase` 经 `EnsureCredFileEncKeyExist`：`checkKeyExist` 不存在则 `generateRandom(32)`+`importSymmetricKey` 后清零随机量；密钥跨 SA 重启保留，**不随 `DestroyCredDatabase` 删除**（解密存量文件所需）。密钥丢失 ⇒ 全部加密凭据文件不可解密。
+- **文件格式**（加密态）：`magic "DAE1"(4) | version(1)=0x01 | nonce(12) | ciphertext+AE_TAG(16 附尾)`；AAD = `magic+version`(5 字节)，绑定头完整性。常量集中在 `credential_data_manager.c:107-113`。
+- **升级兼容（前向，不降级）**：`ReadParcelFromFile` 比对前 4 字节，命中 magic 走 `DecryptCredFileDataToParcel`，否则视为 legacy 明文 TLV 直通 `ReadCredInfoFromParcel`（升级首启可读旧文件）；`SaveParcelToFile` 恒写加密态，故下一次保存即完成升级。降级场景旧版本读到 `DAE1` 因 tag≠`0x0001` 解码失败 → `LoadOsAccountCredDb` 静默 return，凭据缓存为空（符合"不降级"约定）。
+- **新增字段铁律不变**：加密只包裹整个 TLV 序列化产物，TLV 结构/tag/计数规则完全不变。
 
 ## 进程/权限
 
