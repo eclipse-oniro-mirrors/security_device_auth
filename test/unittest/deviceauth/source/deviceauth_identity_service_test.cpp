@@ -2090,7 +2090,7 @@ static bool ReadFileToBuffer(const char *path, uint8_t **buf, int *outLen)
         HcFileClose(file);
         return false;
     }
-    uint8_t *data = (uint8_t *)HcMalloc(sz, 0);
+    uint8_t *data = static_cast<uint8_t *>(HcMalloc(sz, 0));
     if (data == nullptr) {
         HcFileClose(file);
         return false;
@@ -2112,7 +2112,7 @@ HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest001, TestSize.Level0)
     uint32_t plainLen = HcStrlen(plain);
     uint8_t *enc = nullptr;
     uint32_t encLen = 0;
-    int32_t ret = EncryptCredFileData((const uint8_t *)plain, plainLen, &enc, &encLen);
+    int32_t ret = EncryptCredFileData(reinterpret_cast<const uint8_t *>(plain), plainLen, &enc, &encLen);
     EXPECT_EQ(ret, IS_SUCCESS);
     ASSERT_NE(enc, nullptr);
     EXPECT_EQ(memcmp(enc, g_credFileEncMagic, CRED_FILE_ENC_MAGIC_LEN), 0);
@@ -2121,7 +2121,7 @@ HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest001, TestSize.Level0)
     ret = DecryptCredFileDataToParcel(enc, encLen, &parcel);
     EXPECT_EQ(ret, IS_SUCCESS);
     EXPECT_EQ(GetParcelDataSize(&parcel), plainLen);
-    EXPECT_EQ(memcmp((const uint8_t *)GetParcelData(&parcel), plain, plainLen), 0);
+    EXPECT_EQ(memcmp(reinterpret_cast<const uint8_t *>(GetParcelData(&parcel)), plain, plainLen), 0);
     DeleteParcel(&parcel);
     HcFree(enc);
 }
@@ -2149,10 +2149,10 @@ HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest003, TestSize.Level0)
     ASSERT_EQ(DecryptCredFileDataToParcel(enc, encSz, &plain), IS_SUCCESS);
     HcFree(enc);
     uint32_t plainLen = GetParcelDataSize(&plain);
-    const uint8_t *plainData = (const uint8_t *)GetParcelData(&plain);
+    const uint8_t *plainData = reinterpret_cast<const uint8_t *>(GetParcelData(&plain));
     FileHandle wf;
     ASSERT_EQ(HcFileOpen(TEST_CRED_DATA_PATH, MODE_FILE_WRITE, &wf), 0);
-    EXPECT_EQ(HcFileWrite(wf, plainData, (int)plainLen), (int)plainLen);
+    EXPECT_EQ(HcFileWrite(wf, plainData, static_cast<int>(plainLen)), static_cast<int>(plainLen));
     HcFileClose(wf);
     DeleteParcel(&plain);
     DestroyDeviceAuthService();
