@@ -47,10 +47,10 @@
 - **密钥（per-user）**：HUKS DE 域 per-user AES-256 别名密钥，keyAlias = `<osAccountId>_credential_alias`（`BuildCredFileEncKeyAlias`），DE 存储（`isDeStorage=true` + `DEFAULT_OS_ACCOUNT`），用途 `KEY_PURPOSE_KEY_ENCRYPT`（映射 `HKS_KEY_PURPOSE_ENCRYPT|HKS_KEY_PURPOSE_DECRYPT`，见 `huks_adapter_utils.c:44`）。`EnsureCredFileEncKeyExist`：`checkKeyExist` 不存在则 `generateRandom(32)`+`importSymmetricKey` 后清零随机量。密钥跨 SA 重启保留；`OnOsAccountRemoved` 经 `DeleteCredFileEncKey` 显式清理（DE 不随账号自动清除）。
 - **判别（回退攻击对抗）**：是否加密由 `CredFileEncKeyExist`（`checkKeyExist`）判定，**不靠文件头标识位**。判别信号在 HUKS 保护的密钥状态（文件系统级攻击者不可删），故攻击者用伪造明文替换已加密文件→SA 因 key 在而坚持解密→GCM tag 验不过→拒载（空缓存），无法回退/伪造信任。
 - **文件格式**（加密态）：`nonce(12) | ciphertext + AE_TAG(16 附尾)`（无 magic/version 头）；AAD = 固定串 `"hccredential.dat"`（绑定上下文）。常量集中在 `credential_data_manager.c` 顶部。
-- **生命周期（init-only-upgrade）**：
-  - **加载**（`LoadOsAccountCredDb`）：`CredFileEncKeyExist` 命中→`DecryptCredFileDataToParcel`（失败=篡改/密钥丢→拒载空缓存）；未命中→按 legacy 明文读 + **升级**（`EnsureCredFileEncKeyExist` 建密钥 + `SaveParcelToFile(encrypt=true)` 写加密，写失败 `DeleteCredFileEncKey` 回滚保不变量）。升级仅在此点。
-  - **运行时保存**（`SaveOsAccountCredDb`）：`CredFileEncKeyExist` 命中→加密写；未命中→**明文写**（不建密钥、不升级）。新用户首存走明文，下次加载升级。
-  - 不变式 `keyExists ⟺ fileEncrypted` 由加载升级点单一维持。
+- **生命周期（init-only-upgrade，单一升级点+单一回退点）**：
+  - **加载**（`LoadOsAccountCredDb`）：先 `EnsureCredFileEncState`（alias 缺则**无条件建 key**；若 legacy 明文文件存在则加密替换，写失败 `DeleteCredFileEncKey` 回滚——唯一回退点），再 `ReadCredFileToParcel`（**纯读**：alias 在→`DecryptCredFileToParcel`，缺→明文）。无条件建 key 使首次写直接加密（os-account 模式：解锁即建 key，首存即加密）。
+  - **运行时保存**（`SaveOsAccountCredDb`）：`CredFileEncKeyExist` 命中→`SaveCredFileFromParcel(encrypt=true)`；未命中→明文写（不建密钥、不升级）。
+  - 不变式 `keyExists ⟺ fileEncrypted` 由 `EnsureCredFileEncState` 单点维持。
 - **升级兼容（前向，不降级）**：legacy 明文文件首启可读（key 缺失→明文路径），加载即升级为加密；不降级（旧版本读到加密态因 TLV tag≠`0x0001` 解码失败→空缓存）。
 - **新增字段铁律不变**：加密只包裹整个 TLV 序列化产物，TLV 结构/tag/计数规则完全不变。
 

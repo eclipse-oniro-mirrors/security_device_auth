@@ -477,7 +477,7 @@ static int32_t EncryptCredFileData(const uint8_t *plain, uint32_t plainLen, int3
     return IS_SUCCESS;
 }
 
-static int32_t DecryptCredFileDataToParcel(const uint8_t *fileData, uint32_t fileLen, int32_t osAccountId,
+static int32_t DecryptCredFileToParcel(const uint8_t *fileData, uint32_t fileLen, int32_t osAccountId,
     HcParcel *parcel)
 {
     if (fileLen <= CRED_FILE_ENC_NONCE_LEN + AE_TAG_LEN) {
@@ -517,7 +517,7 @@ static int32_t DecryptCredFileDataToParcel(const uint8_t *fileData, uint32_t fil
     return IS_SUCCESS;
 }
 
-static bool ReadFileRaw(const char *filePath, uint8_t **outData, int *outLen)
+static bool ReadCredFileRaw(const char *filePath, uint8_t **outData, int *outLen)
 {
     FileHandle file;
     int ret = HcFileOpen(filePath, MODE_FILE_READ, &file);
@@ -550,7 +550,7 @@ static bool ReadFileRaw(const char *filePath, uint8_t **outData, int *outLen)
     return true;
 }
 
-static bool SaveParcelToFile(const char *filePath, HcParcel *parcel, int32_t osAccountId, bool encrypt)
+static bool SaveCredFileFromParcel(const char *filePath, HcParcel *parcel, int32_t osAccountId, bool encrypt)
 {
     uint32_t plainLen = GetParcelDataSize(parcel);
     const char *plainData = GetParcelData(parcel);
@@ -592,17 +592,41 @@ static bool SaveParcelToFile(const char *filePath, HcParcel *parcel, int32_t osA
     return true;
 }
 
+static void EnsureCredFileEncState(const char *filePath, int32_t osAccountId)
+{
+    if (CredFileEncKeyExist(osAccountId)) {
+        return;
+    }
+    // first load: establish per-user key unconditionally so first save is encrypted
+    if (EnsureCredFileEncKeyExist(osAccountId) != IS_SUCCESS) {
+        return;
+    }
+    // if a legacy plaintext file exists, encrypt-replace it so decrypt-read works
+    uint8_t *fileData = NULL;
+    int fileLen = 0;
+    if (!ReadCredFileRaw(filePath, &fileData, &fileLen)) {
+        return; // no file: key established, first save will encrypt
+    }
+    HcParcel parcel = CreateParcel(0, 0);
+    bool ok = ParcelWrite(&parcel, fileData, fileLen);
+    HcFree(fileData);
+    if (ok && !SaveCredFileFromParcel(filePath, &parcel, osAccountId, true)) {
+        LOGW("[CRED#DB]: upgrade write failed, rollback key!");
+        DeleteCredFileEncKey(osAccountId);
+    }
+    DeleteParcel(&parcel);
+}
+
 static bool ReadCredFileToParcel(const char *filePath, int32_t osAccountId, HcParcel *parcel)
 {
     uint8_t *fileData = NULL;
     int fileLen = 0;
-    if (!ReadFileRaw(filePath, &fileData, &fileLen)) {
+    if (!ReadCredFileRaw(filePath, &fileData, &fileLen)) {
         return false;
     }
-    bool keyExist = CredFileEncKeyExist(osAccountId);
     bool ok = false;
-    if (keyExist) {
-        ok = (DecryptCredFileDataToParcel(fileData, (uint32_t)fileLen, osAccountId, parcel) == IS_SUCCESS);
+    if (CredFileEncKeyExist(osAccountId)) {
+        ok = (DecryptCredFileToParcel(fileData, (uint32_t)fileLen, osAccountId, parcel) == IS_SUCCESS);
         if (!ok) {
             LOGE("[CRED#DB]: decrypt cred file failed (tamper or key lost), reject!");
         }
@@ -610,13 +634,6 @@ static bool ReadCredFileToParcel(const char *filePath, int32_t osAccountId, HcPa
         ok = ParcelWrite(parcel, fileData, fileLen);
         if (!ok) {
             LOGE("[CRED#DB]: parcel write error!");
-        }
-        // init-only upgrade: legacy plaintext + key absent -> create key + write encrypted
-        if (ok && (EnsureCredFileEncKeyExist(osAccountId) == IS_SUCCESS)) {
-            if (!SaveParcelToFile(filePath, parcel, osAccountId, true)) {
-                LOGW("[CRED#DB]: upgrade write failed, rollback key!");
-                DeleteCredFileEncKey(osAccountId);
-            }
         }
     }
     HcFree(fileData);
@@ -631,6 +648,7 @@ static void LoadOsAccountCredDb(int32_t osAccountId)
         return;
     }
     HcParcel parcel = CreateParcel(0, 0);
+    EnsureCredFileEncState(filePath, osAccountId);
     if (!ReadCredFileToParcel(filePath, osAccountId, &parcel)) {
         DeleteParcel(&parcel);
         return;
@@ -1593,7 +1611,7 @@ int32_t SaveOsAccountCredDb(int32_t osAccountId)
         return IS_ERR_CONVERT_FAILED;
     }
     bool encrypt = CredFileEncKeyExist(osAccountId);
-    bool ok = SaveParcelToFile(filePath, &parcel, osAccountId, encrypt);
+    bool ok = SaveCredFileFromParcel(filePath, &parcel, osAccountId, encrypt);
     DeleteParcel(&parcel);
     UnlockHcMutex(g_credMutex);
     if (!ok) {

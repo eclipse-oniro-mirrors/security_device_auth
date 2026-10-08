@@ -2074,7 +2074,7 @@ HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest001, TestSize.Level0)
     ASSERT_NE(enc, nullptr);
     EXPECT_GT(encLen, CRED_FILE_ENC_NONCE_LEN + AE_TAG_LEN);
     HcParcel parcel = CreateParcel(0, 0);
-    EXPECT_EQ(DecryptCredFileDataToParcel(enc, encLen, DEFAULT_OS_ACCOUNT, &parcel), IS_SUCCESS);
+    EXPECT_EQ(DecryptCredFileToParcel(enc, encLen, DEFAULT_OS_ACCOUNT, &parcel), IS_SUCCESS);
     EXPECT_EQ(GetParcelDataSize(&parcel), plainLen);
     EXPECT_EQ(memcmp(reinterpret_cast<const uint8_t *>(GetParcelData(&parcel)), plain, plainLen), 0);
     DeleteParcel(&parcel);
@@ -2088,7 +2088,7 @@ HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest002, TestSize.Level0)
     const char *forged = "forged plaintext tlv that is not valid ciphertext";
     uint32_t forgedLen = HcStrlen(forged);
     HcParcel parcel = CreateParcel(0, 0);
-    EXPECT_NE(DecryptCredFileDataToParcel(reinterpret_cast<const uint8_t *>(forged), forgedLen,
+    EXPECT_NE(DecryptCredFileToParcel(reinterpret_cast<const uint8_t *>(forged), forgedLen,
         DEFAULT_OS_ACCOUNT, &parcel), IS_SUCCESS);
     DeleteParcel(&parcel);
 }
