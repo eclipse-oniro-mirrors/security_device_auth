@@ -387,7 +387,7 @@ static bool CredFileEncKeyExist(int32_t osAccountId)
         return false;
     }
     Uint8Buff keyAlias = { aliasVal, aliasLen };
-    return (GetLoaderInstance()->checkKeyExist(&keyAlias, true, DEFAULT_OS_ACCOUNT) == HAL_SUCCESS);
+    return (GetLoaderInstance()->checkKeyExist(&keyAlias, true, osAccountId) == HAL_SUCCESS);
 }
 
 static int32_t EnsureCredFileEncKeyExist(int32_t osAccountId)
@@ -398,7 +398,7 @@ static int32_t EnsureCredFileEncKeyExist(int32_t osAccountId)
         return IS_ERR_CONVERT_FAILED;
     }
     Uint8Buff keyAlias = { aliasVal, aliasLen };
-    int32_t ret = GetLoaderInstance()->checkKeyExist(&keyAlias, true, DEFAULT_OS_ACCOUNT);
+    int32_t ret = GetLoaderInstance()->checkKeyExist(&keyAlias, true, osAccountId);
     if (ret == HAL_SUCCESS) {
         return IS_SUCCESS;
     }
@@ -413,7 +413,7 @@ static int32_t EnsureCredFileEncKeyExist(int32_t osAccountId)
         LOGE("[CRED#DB]: generate cred file enc key failed, res: %" LOG_PUB "d", ret);
         return IS_ERR_INIT_FAILED;
     }
-    KeyParams keyParams = { { aliasVal, aliasLen, true }, true, DEFAULT_OS_ACCOUNT };
+    KeyParams keyParams = { { aliasVal, aliasLen, true }, true, osAccountId };
     ret = GetLoaderInstance()->importSymmetricKey(&keyParams, &keyBuff, KEY_PURPOSE_KEY_ENCRYPT, NULL);
     (void)memset_s(keyVal, sizeof(keyVal), 0, sizeof(keyVal));
     if (ret != HAL_SUCCESS) {
@@ -432,7 +432,7 @@ static void DeleteCredFileEncKey(int32_t osAccountId)
         return;
     }
     Uint8Buff keyAlias = { aliasVal, aliasLen };
-    (void)GetLoaderInstance()->deleteKey(&keyAlias, true, DEFAULT_OS_ACCOUNT);
+    (void)GetLoaderInstance()->deleteKey(&keyAlias, true, osAccountId);
 }
 
 static int32_t EncryptCredFileData(const uint8_t *plain, uint32_t plainLen, int32_t osAccountId,
@@ -461,7 +461,7 @@ static int32_t EncryptCredFileData(const uint8_t *plain, uint32_t plainLen, int3
         HcFree(buf);
         return IS_ERR_MEMORY_COPY;
     }
-    KeyParams keyParams = { { aliasVal, aliasLen, true }, true, DEFAULT_OS_ACCOUNT };
+    KeyParams keyParams = { { aliasVal, aliasLen, true }, true, osAccountId };
     GcmParam gcmParam = { nonce, CRED_FILE_ENC_NONCE_LEN, (uint8_t *)CRED_FILE_ENC_AAD,
         CRED_FILE_ENC_AAD_LEN };
     Uint8Buff plainBuff = { (uint8_t *)plain, plainLen };
@@ -497,7 +497,7 @@ static int32_t DecryptCredFileToParcel(const uint8_t *fileData, uint32_t fileLen
         LOGE("[CRED#DB]: alloc plain buf failed.");
         return IS_ERR_ALLOC_MEMORY;
     }
-    KeyParams keyParams = { { aliasVal, aliasLen, true }, true, DEFAULT_OS_ACCOUNT };
+    KeyParams keyParams = { { aliasVal, aliasLen, true }, true, osAccountId };
     GcmParam gcmParam = { (uint8_t *)nonce, CRED_FILE_ENC_NONCE_LEN, (uint8_t *)CRED_FILE_ENC_AAD,
         CRED_FILE_ENC_AAD_LEN };
     Uint8Buff cipherBuff = { (uint8_t *)(fileData + CRED_FILE_ENC_NONCE_LEN), cipherLen };
