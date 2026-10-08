@@ -592,6 +592,37 @@ static bool SaveParcelToFile(const char *filePath, HcParcel *parcel, int32_t osA
     return true;
 }
 
+static bool ReadCredFileToParcel(const char *filePath, int32_t osAccountId, HcParcel *parcel)
+{
+    uint8_t *fileData = NULL;
+    int fileLen = 0;
+    if (!ReadFileRaw(filePath, &fileData, &fileLen)) {
+        return false;
+    }
+    bool keyExist = CredFileEncKeyExist(osAccountId);
+    bool ok = false;
+    if (keyExist) {
+        ok = (DecryptCredFileDataToParcel(fileData, (uint32_t)fileLen, osAccountId, parcel) == IS_SUCCESS);
+        if (!ok) {
+            LOGE("[CRED#DB]: decrypt cred file failed (tamper or key lost), reject!");
+        }
+    } else {
+        ok = ParcelWrite(parcel, fileData, fileLen);
+        if (!ok) {
+            LOGE("[CRED#DB]: parcel write error!");
+        }
+        // init-only upgrade: legacy plaintext + key absent -> create key + write encrypted
+        if (ok && (EnsureCredFileEncKeyExist(osAccountId) == IS_SUCCESS)) {
+            if (!SaveParcelToFile(filePath, parcel, osAccountId, true)) {
+                LOGW("[CRED#DB]: upgrade write failed, rollback key!");
+                DeleteCredFileEncKey(osAccountId);
+            }
+        }
+    }
+    HcFree(fileData);
+    return ok;
+}
+
 static void LoadOsAccountCredDb(int32_t osAccountId)
 {
     char filePath[MAX_DB_PATH_LEN] = { 0 };
@@ -599,36 +630,11 @@ static void LoadOsAccountCredDb(int32_t osAccountId)
         LOGE("[CRED#DB]: Failed to get os account info path!");
         return;
     }
-    uint8_t *fileData = NULL;
-    int fileLen = 0;
-    if (!ReadFileRaw(filePath, &fileData, &fileLen)) {
+    HcParcel parcel = CreateParcel(0, 0);
+    if (!ReadCredFileToParcel(filePath, osAccountId, &parcel)) {
+        DeleteParcel(&parcel);
         return;
     }
-    HcParcel parcel = CreateParcel(0, 0);
-    bool keyExist = CredFileEncKeyExist(osAccountId);
-    if (keyExist) {
-        if (DecryptCredFileDataToParcel(fileData, (uint32_t)fileLen, osAccountId, &parcel) != IS_SUCCESS) {
-            LOGE("[CRED#DB]: decrypt cred file failed (tamper or key lost), reject!");
-            HcFree(fileData);
-            DeleteParcel(&parcel);
-            return;
-        }
-    } else {
-        if (!ParcelWrite(&parcel, fileData, fileLen)) {
-            LOGE("[CRED#DB]: parcel write error!");
-            HcFree(fileData);
-            DeleteParcel(&parcel);
-            return;
-        }
-        // init-only upgrade: legacy plaintext file + key absent -> create key + write encrypted
-        if (EnsureCredFileEncKeyExist(osAccountId) == IS_SUCCESS) {
-            if (!SaveParcelToFile(filePath, &parcel, osAccountId, true)) {
-                LOGW("[CRED#DB]: upgrade write failed, rollback key!");
-                DeleteCredFileEncKey(osAccountId);
-            }
-        }
-    }
-    HcFree(fileData);
     OsAccountCredInfo info;
     info.osAccountId = osAccountId;
     info.credentials = CreateCredentialVec();
