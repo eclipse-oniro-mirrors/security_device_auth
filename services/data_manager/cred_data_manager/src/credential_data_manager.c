@@ -550,7 +550,7 @@ static bool ReadCredFileRaw(const char *filePath, uint8_t **outData, int *outLen
     return true;
 }
 
-static bool SaveCredFileFromParcel(const char *filePath, HcParcel *parcel, int32_t osAccountId, bool encrypt)
+static bool SaveParcelToFile(const char *filePath, HcParcel *parcel, int32_t osAccountId, bool encrypt)
 {
     uint32_t plainLen = GetParcelDataSize(parcel);
     const char *plainData = GetParcelData(parcel);
@@ -610,7 +610,7 @@ static void EnsureCredFileEncState(const char *filePath, int32_t osAccountId)
     HcParcel parcel = CreateParcel(0, 0);
     bool ok = ParcelWrite(&parcel, fileData, fileLen);
     HcFree(fileData);
-    if (ok && !SaveCredFileFromParcel(filePath, &parcel, osAccountId, true)) {
+    if (ok && !SaveParcelToFile(filePath, &parcel, osAccountId, true)) {
         LOGW("[CRED#DB]: upgrade write failed, rollback key!");
         DeleteCredFileEncKey(osAccountId);
     }
@@ -1611,7 +1611,7 @@ int32_t SaveOsAccountCredDb(int32_t osAccountId)
         return IS_ERR_CONVERT_FAILED;
     }
     bool encrypt = CredFileEncKeyExist(osAccountId);
-    bool ok = SaveCredFileFromParcel(filePath, &parcel, osAccountId, encrypt);
+    bool ok = SaveParcelToFile(filePath, &parcel, osAccountId, encrypt);
     DeleteParcel(&parcel);
     UnlockHcMutex(g_credMutex);
     if (!ok) {
