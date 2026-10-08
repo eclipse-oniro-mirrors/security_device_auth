@@ -121,7 +121,6 @@ int32_t GetIpcIoDataLength(const IpcIo *io);
 int32_t InitProxyAdapt(void);
 void UnInitProxyAdapt(void);
 void ServiceInit(void);
-void ShowIpcSvcInfo(const SvcIdentity *svc);
 int32_t IpcIoBufferOffset(void);
 
 int32_t GetAndValSizeParam(const IpcDataInfo *ipcParams,
