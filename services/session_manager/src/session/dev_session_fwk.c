@@ -34,6 +34,7 @@
 #include "performance_dumper.h"
 #include "hisysevent_common.h"
 #include "operation_data_manager.h"
+#include "identity_service_defines.h"
 
 static int32_t StartV1Session(SessionImpl *impl, CJson **sendMsg)
 {
@@ -666,6 +667,67 @@ static int32_t ProcV1Session(SessionImpl *impl, const CJson *receviedMsg, bool *
     return res;
 }
 
+static int32_t GetAuthTypeByCredType(uint8_t credType)
+{
+    int32_t authType = P2P_AUTH;
+    if (credType == ACCOUNT_RELATED) {
+        authType = IDENTICAL_ACCOUNT_AUTH;
+    } else if (credType == ACCOUNT_SHARED) {
+        authType = ACROSS_ACCOUNT_AUTH;
+    }
+    return authType;
+}
+
+static bool IsAppAuthType(const CJson *credDataJson)
+{
+    int32_t credType = 0;
+    if (GetIntFromJson(credDataJson, FIELD_CRED_TYPE, &credType) != HC_SUCCESS) {
+        return false;
+    }
+    int32_t issuer = 0;
+    if (GetIntFromJson(credDataJson, FIELD_ISSUER, &issuer) != HC_SUCCESS) {
+        return false;
+    }
+    int32_t proofType = 0;
+    if (GetIntFromJson(credDataJson, FIELD_PROOF_TYPE, &proofType) != HC_SUCCESS) {
+        return false;
+    }
+    return credType == ACCOUNT_RELATED && issuer == APP_ACCOUNT && proofType == PROOF_TYPE_PKI;
+}
+
+static int32_t GetAuthTypeForSession(const SessionImpl *impl)
+{
+    if (impl->isCredAuth) {
+        CJson *credDataJson = GetObjFromJson(impl->context, FIELD_CREDENTIAL_OBJ);
+        if (credDataJson == NULL) {
+            LOGW("credDataJson is null!");
+            return P2P_AUTH;
+        }
+        if (IsAppAuthType(credDataJson)) {
+            return APP_AUTH;
+        }
+        uint8_t credType = ACCOUNT_UNRELATED;
+        if (GetUint8FromJson(credDataJson, FIELD_CRED_TYPE, &credType) != HC_SUCCESS) {
+            LOGW("Failed to get cred type!");
+            return P2P_AUTH;
+        }
+        return GetAuthTypeByCredType(credType);
+    } else {
+        return P2P_AUTH;
+    }
+}
+
+static void FillAuthSourceAndType(const SessionImpl *impl, CJson *returnData)
+{
+    if (AddIntToJson(returnData, FIELD_AUTH_SOURCE, DEV_AUTH) != HC_SUCCESS) {
+        LOGW("Add auth source to return data failed.");
+    }
+    int32_t authType = GetAuthTypeForSession(impl);
+    if (AddIntToJson(returnData, FIELD_AUTH_TYPE, authType) != HC_SUCCESS) {
+        LOGW("Add auth type to return data failed.");
+    }
+}
+
 static char *GetSessionReturnData(const SessionImpl *impl)
 {
     CJson *returnData = CreateJson();
@@ -686,6 +748,7 @@ static char *GetSessionReturnData(const SessionImpl *impl)
             return NULL;
         }
     }
+    FillAuthSourceAndType(impl, returnData);
     char *returnDataStr = PackJsonToString(returnData);
     FreeJson(returnData);
     if (returnDataStr == NULL) {

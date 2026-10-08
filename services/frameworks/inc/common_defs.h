@@ -144,6 +144,8 @@
 #define FIELD_LIGHT_ACCOUNT_MSG "lightAccountMsg"
 #define FIELD_PEER_ACCOUNT_RANDOM_LEN "peerRandomLen"
 #define FIELD_PEER_ACCOUNT_RANDOM_VAL "peerRandomVal"
+#define FIELD_AUTH_SOURCE "authSource"
+#define FIELD_AUTH_TYPE "authType"
 
 #define INVALID_MODULE_TYPE (-1)
 #define GROUP_ERR_MSG 0x8080
@@ -277,6 +279,18 @@ typedef enum {
     REGISTER = 7,
     SECURE_CLONE = 8,
 } OperationCode;
+
+typedef enum {
+    DEV_AUTH = 0,
+} AuthSource;
+
+typedef enum {
+    P2P_AUTH = 0,
+    IDENTICAL_ACCOUNT_AUTH = 1,
+    ACROSS_ACCOUNT_AUTH = 2,
+    OPEN_CRED_AUTH = 3,
+    APP_AUTH = 4,
+} AuthType;
 
 typedef enum {
     IMPORT_SELF_CREDENTIAL = 0,
