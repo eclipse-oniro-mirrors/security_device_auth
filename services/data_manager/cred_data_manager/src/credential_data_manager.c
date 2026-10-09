@@ -435,6 +435,7 @@ static int32_t EncryptCredFileData(const uint8_t *plain, uint32_t plainLen, int3
     uint8_t aliasVal[CRED_FILE_ENC_ALIAS_MAX_LEN];
     uint32_t aliasLen = 0;
     if (BuildCredFileEncKeyAlias(osAccountId, aliasVal, sizeof(aliasVal), &aliasLen) != IS_SUCCESS) {
+        LOGE("[CRED#DB]: build alias for encrypt failed!");
         return IS_ERR_CONVERT_FAILED;
     }
     uint8_t nonce[CRED_FILE_ENC_NONCE_LEN];
@@ -452,6 +453,7 @@ static int32_t EncryptCredFileData(const uint8_t *plain, uint32_t plainLen, int3
         return IS_ERR_ALLOC_MEMORY;
     }
     if (memcpy_s(buf, totalLen, nonce, CRED_FILE_ENC_NONCE_LEN) != EOK) {
+        LOGE("[CRED#DB]: memcpy nonce to enc buf failed!");
         HcFree(buf);
         return IS_ERR_MEMORY_COPY;
     }
@@ -481,6 +483,7 @@ static int32_t DecryptCredFileToParcel(const uint8_t *fileData, uint32_t fileLen
     uint8_t aliasVal[CRED_FILE_ENC_ALIAS_MAX_LEN];
     uint32_t aliasLen = 0;
     if (BuildCredFileEncKeyAlias(osAccountId, aliasVal, sizeof(aliasVal), &aliasLen) != IS_SUCCESS) {
+        LOGE("[CRED#DB]: build alias for decrypt failed!");
         return IS_ERR_CONVERT_FAILED;
     }
     const uint8_t *nonce = fileData;
@@ -593,20 +596,29 @@ static void EnsureCredFileEncState(const char *filePath, int32_t osAccountId)
     }
     // first load: establish per-user key unconditionally so first save is encrypted
     if (EnsureCredFileEncKeyExist(osAccountId) != IS_SUCCESS) {
+        LOGE("[CRED#DB]: upgrade aborted, key gen failed! [Id]: %" LOG_PUB "d", osAccountId);
         return;
     }
     // if a legacy plaintext file exists, encrypt-replace it so decrypt-read works
     uint8_t *fileData = NULL;
     int fileLen = 0;
     if (!ReadCredFileRaw(filePath, &fileData, &fileLen)) {
-        return; // no file: key established, first save will encrypt
+        LOGI("[CRED#DB]: no legacy file to upgrade, key established. [Id]: %" LOG_PUB "d", osAccountId);
+        return;
     }
     HcParcel parcel = CreateParcel(0, 0);
     bool ok = ParcelWrite(&parcel, fileData, fileLen);
     HcFree(fileData);
-    if (ok && !SaveParcelToFile(filePath, &parcel, osAccountId, true)) {
-        LOGW("[CRED#DB]: upgrade write failed, rollback key!");
+    if (!ok) {
+        LOGE("[CRED#DB]: upgrade aborted, parcel write failed! [Id]: %" LOG_PUB "d", osAccountId);
+        DeleteParcel(&parcel);
+        return;
+    }
+    if (!SaveParcelToFile(filePath, &parcel, osAccountId, true)) {
+        LOGW("[CRED#DB]: upgrade write failed, rollback key! [Id]: %" LOG_PUB "d", osAccountId);
         DeleteCredFileEncKey(osAccountId);
+    } else {
+        LOGI("[CRED#DB]: cred file upgrade success. [Id]: %" LOG_PUB "d", osAccountId);
     }
     DeleteParcel(&parcel);
 }
