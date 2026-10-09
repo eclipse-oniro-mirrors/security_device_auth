@@ -406,18 +406,12 @@ static int32_t EnsureCredFileEncKeyExist(int32_t osAccountId)
         LOGE("[CRED#DB]: check cred file enc key failed, res: %" LOG_PUB "d", ret);
         return IS_ERR_INIT_FAILED;
     }
-    uint8_t keyVal[CRED_FILE_ENC_KEY_LEN];
-    Uint8Buff keyBuff = { keyVal, CRED_FILE_ENC_KEY_LEN };
-    ret = GetLoaderInstance()->generateRandom(&keyBuff);
+    // generate the AES-256-GCM key natively inside HUKS (raw material never enters process memory)
+    KeyParams keyParams = { { aliasVal, aliasLen, true }, true, osAccountId };
+    ret = GetLoaderInstance()->generateAesGcmKeyWithStorage(&keyParams, CRED_FILE_ENC_KEY_LEN,
+        KEY_PURPOSE_KEY_ENCRYPT);
     if (ret != HAL_SUCCESS) {
         LOGE("[CRED#DB]: generate cred file enc key failed, res: %" LOG_PUB "d", ret);
-        return IS_ERR_INIT_FAILED;
-    }
-    KeyParams keyParams = { { aliasVal, aliasLen, true }, true, osAccountId };
-    ret = GetLoaderInstance()->importSymmetricKey(&keyParams, &keyBuff, KEY_PURPOSE_KEY_ENCRYPT, NULL);
-    (void)memset_s(keyVal, sizeof(keyVal), 0, sizeof(keyVal));
-    if (ret != HAL_SUCCESS) {
-        LOGE("[CRED#DB]: import cred file enc key failed, res: %" LOG_PUB "d", ret);
         return IS_ERR_INIT_FAILED;
     }
     LOGI("[CRED#DB]: cred file enc key created. [Id]: %" LOG_PUB "d", osAccountId);

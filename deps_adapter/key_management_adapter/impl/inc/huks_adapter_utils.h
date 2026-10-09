@@ -130,6 +130,8 @@ int32_t ConstructAgreeParamSet(const KeyParams *keyParams, Algorithm algo, const
     struct HksParamSet **paramSet);
 int32_t ConstructGenerateKeyPairWithStorageParams(struct HksParamSet **paramSet, Algorithm algo,
     uint32_t keyLen, KeyPurpose purpose, const KeyParams *authIdParams);
+int32_t ConstructGenerateAesGcmKeyParams(struct HksParamSet **paramSet, uint32_t keyLen,
+    KeyPurpose purpose, const KeyParams *keyParams);
 int32_t CheckGenerateKeyPairParams(const KeyParams *keyParams, const ExtraInfo *exInfo, uint32_t keyLen);
 int32_t ConstructExportParams(bool isDeStorage, int32_t osAccountId, struct HksParamSet **paramSet);
 int32_t CheckExportParams(const KeyParams *keyParams, const Uint8Buff *outPubKey);

@@ -44,7 +44,7 @@
 
 `credential_data_manager.c` 对凭据 TLV 做 AES-256-GCM 加解密。仅 standard/small 经此路径；mini `deviceauth_lite` 不受影响。
 
-- **密钥（per-user）**：HUKS DE 域 per-user AES-256 别名密钥，keyAlias = `<osAccountId>_credential_alias`（`BuildCredFileEncKeyAlias`），DE 存储（`isDeStorage=true` + 实际 `osAccountId`，遵循仓内 DE 用法约定如 `pake_v1_protocol_task_common.c`/`identity_group.c`；HUKS `AddStorageExtParams` 对 DE 域忽略 osAccountId、仅设 `HKS_AUTH_STORAGE_LEVEL_DE`，per-user 区分实际靠 alias 串），用途 `KEY_PURPOSE_KEY_ENCRYPT`（映射 `HKS_KEY_PURPOSE_ENCRYPT|HKS_KEY_PURPOSE_DECRYPT`，见 `huks_adapter_utils.c:44`）。`EnsureCredFileEncKeyExist`：`checkKeyExist` 不存在则 `generateRandom(32)`+`importSymmetricKey` 后清零随机量。密钥跨 SA 重启保留；`OnOsAccountRemoved` 经 `DeleteCredFileEncKey` 显式清理（DE 不随账号自动清除）。
+- **密钥（per-user）**：HUKS DE 域 per-user AES-256 别名密钥，keyAlias = `<osAccountId>_credential_alias`（`BuildCredFileEncKeyAlias`），DE 存储（`isDeStorage=true` + 实际 `osAccountId`，遵循仓内 DE 用法约定如 `pake_v1_protocol_task_common.c`/`identity_group.c`；HUKS `AddStorageExtParams` 对 DE 域忽略 osAccountId、仅设 `HKS_AUTH_STORAGE_LEVEL_DE`，per-user 区分实际靠 alias 串），用途 `KEY_PURPOSE_KEY_ENCRYPT`（映射 `HKS_KEY_PURPOSE_ENCRYPT|HKS_KEY_PURPOSE_DECRYPT`，见 `huks_adapter_utils.c:44`）。`EnsureCredFileEncKeyExist`：`checkKeyExist` 不存在则 `generateAesGcmKeyWithStorage`（HUKS 原生 `HksGenerateKey`，密钥原料不出 HUKS、不经进程内存）。密钥跨 SA 重启保留；`OnOsAccountRemoved` 经 `DeleteCredFileEncKey` 显式清理（DE 不随账号自动清除）。
 - **判别（回退攻击对抗）**：是否加密由 `CredFileEncKeyExist`（`checkKeyExist`）判定，**不靠文件头标识位**。判别信号在 HUKS 保护的密钥状态（文件系统级攻击者不可删），故攻击者用伪造明文替换已加密文件→SA 因 key 在而坚持解密→GCM tag 验不过→拒载（空缓存），无法回退/伪造信任。
 - **文件格式**（加密态）：`nonce(12) | ciphertext + AE_TAG(16 附尾)`（无 magic/version 头）；AAD = 固定串 `"hccredential.dat"`（绑定上下文）。常量集中在 `credential_data_manager.c` 顶部。
 - **生命周期（init-only-upgrade，单一升级点+单一回退点）**：
