@@ -15,8 +15,8 @@
 
 #include "hc_file.h"
 #include <dirent.h>
-#include <errno.h>
-#include <stdio.h>
+#include <fcntl.h>
+#include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include "hc_log.h"
@@ -67,33 +67,32 @@ static int32_t CreateDirectory(const char *filePath)
     return 0;
 }
 
-static FILE *HcFileOpenRead(const char *path)
+static int HcFileOpenRead(const char *path)
 {
     LOGI("[OS]: file open enter.");
-    FILE *fp = fopen(path, "rb");
+    int res = open(path, O_RDONLY);
     LOGI("[OS]: file open quit.");
-    if (fp == NULL) {
+    if (res == -1) {
         LOGE("[OS]: file open fail. [Errno]: %" LOG_PUB "d", errno);
     }
-    return fp;
+    return res;
 }
 
-static FILE *HcFileOpenWrite(const char *path)
+static int HcFileOpenWrite(const char *path)
 {
     if (access(path, F_OK) != 0) {
         LOGI("[OS]: HcFileOpenWrite access fail. [errno]: %" LOG_PUB "d", errno);
         if (CreateDirectory(path) != 0) {
-            return NULL;
+            return -1;
         }
     }
     LOGI("[OS]: file open enter.");
-    FILE *fp = fopen(path, "wb+");
+    int res = open(path, O_RDWR | O_CREAT | O_TRUNC, 0600);
     LOGI("[OS]: file open quit.");
-    if (fp == NULL) {
+    if (res == -1) {
         LOGE("[OS]: file open fail. [Errno]: %" LOG_PUB "d", errno);
-        return NULL;
     }
-    return fp;
+    return res;
 }
 
 int HcFileOpen(const char *path, int mode, FileHandle *file)
@@ -102,11 +101,11 @@ int HcFileOpen(const char *path, int mode, FileHandle *file)
         return -1;
     }
     if (mode == MODE_FILE_READ) {
-        file->fileHandle.pfd = HcFileOpenRead(path);
+        file->fileHandle.fd = HcFileOpenRead(path);
     } else {
-        file->fileHandle.pfd = HcFileOpenWrite(path);
+        file->fileHandle.fd = HcFileOpenWrite(path);
     }
-    if (file->fileHandle.pfd == NULL) {
+    if (file->fileHandle.fd == -1) {
         return -1;
     } else {
         return 0;
@@ -115,26 +114,16 @@ int HcFileOpen(const char *path, int mode, FileHandle *file)
 
 int HcFileSize(FileHandle file)
 {
-    FILE *fp = file.fileHandle.pfd;
-    if (fp == NULL) {
-        return -1;
-    }
-    if (fseek(fp, 0L, SEEK_END) != 0) {
-        LOGE("[OS]: fseek fail. [Errno]: %" LOG_PUB "d", errno);
-        return -1;
-    }
-    int size = ftell(fp);
-    if (fseek(fp, 0L, SEEK_SET) != 0) {
-        LOGE("[OS]: fseek fail. [Errno]: %" LOG_PUB "d", errno);
-        return -1;
-    }
+    int fp = file.fileHandle.fd;
+    int size = lseek(fp, 0, SEEK_END);
+    (void)lseek(fp, 0, SEEK_SET);
     return size;
 }
 
 int HcFileRead(FileHandle file, void *dst, int dstSize)
 {
-    FILE *fp = file.fileHandle.pfd;
-    if (fp == NULL || dstSize < 0 || dst == NULL) {
+    int fp = file.fileHandle.fd;
+    if (fp == -1 || dstSize < 0 || dst == NULL) {
         return -1;
     }
 
@@ -142,8 +131,8 @@ int HcFileRead(FileHandle file, void *dst, int dstSize)
     int total = 0;
     LOGI("[OS]: file read enter. [OriSize]: %" LOG_PUB "d", dstSize);
     while (total < dstSize) {
-        int readCount = (int)fread(dstBuffer + total, 1, dstSize - total, fp);
-        if (ferror(fp) != 0) {
+        int readCount = read(fp, dstBuffer + total, dstSize - total);
+        if (readCount < 0 || readCount > (dstSize - total)) {
             LOGE("[OS]: read size error. [Errno]: %" LOG_PUB "d", errno);
             return -1;
         }
@@ -159,8 +148,8 @@ int HcFileRead(FileHandle file, void *dst, int dstSize)
 
 int HcFileWrite(FileHandle file, const void *src, int srcSize)
 {
-    FILE *fp = file.fileHandle.pfd;
-    if (fp == NULL || srcSize < 0 || src == NULL) {
+    int fp = file.fileHandle.fd;
+    if (fp == -1 || srcSize < 0 || src == NULL) {
         return -1;
     }
 
@@ -168,14 +157,10 @@ int HcFileWrite(FileHandle file, const void *src, int srcSize)
     int total = 0;
     LOGI("[OS]: file write enter. [OriSize]: %" LOG_PUB "d", srcSize);
     while (total < srcSize) {
-        int writeCount = (int)fwrite(srcBuffer + total, 1, srcSize - total, fp);
-        if (ferror(fp) != 0) {
+        int writeCount = write(fp, srcBuffer + total, srcSize - total);
+        if (writeCount < 0 || writeCount > (srcSize - total)) {
             LOGE("[OS]: write size error. [Errno]: %" LOG_PUB "d", errno);
             return -1;
-        }
-        if (writeCount == 0) {
-            LOGE("write size = 0, errno = %" LOG_PUB "d", errno);
-            return total;
         }
         total += writeCount;
     }
@@ -185,12 +170,12 @@ int HcFileWrite(FileHandle file, const void *src, int srcSize)
 
 void HcFileClose(FileHandle file)
 {
-    FILE *fp = file.fileHandle.pfd;
-    if (fp == NULL) {
+    int fp = file.fileHandle.fd;
+    if (fp == -1) {
         return;
     }
 
-    int res = fclose(fp);
+    int res = close(fp);
     if (res != 0) {
         LOGW("close file failed, res = %" LOG_PUB "d", res);
     }
