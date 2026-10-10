@@ -407,7 +407,7 @@ static int32_t EnsureCredFileEncKeyExist(int32_t osAccountId)
         return IS_ERR_INIT_FAILED;
     }
     // generate the AES-256-GCM key natively inside HUKS (raw material never enters process memory)
-    KeyParams keyParams = { { aliasVal, aliasLen, true }, true, osAccountId };
+    KeyParams keyParams = { { aliasVal, aliasLen, true }, false, osAccountId };
     ret = GetLoaderInstance()->generateAesGcmKeyWithStorage(&keyParams, CRED_FILE_ENC_KEY_LEN,
         KEY_PURPOSE_KEY_ENCRYPT);
     if (ret != HAL_SUCCESS) {
@@ -426,7 +426,7 @@ static void DeleteCredFileEncKey(int32_t osAccountId)
         return;
     }
     Uint8Buff keyAlias = { aliasVal, aliasLen };
-    (void)GetLoaderInstance()->deleteKey(&keyAlias, true, osAccountId);
+    (void)GetLoaderInstance()->deleteKey(&keyAlias, false, osAccountId);
 }
 
 static int32_t EncryptCredFileData(const uint8_t *plain, uint32_t plainLen, int32_t osAccountId,
@@ -457,7 +457,7 @@ static int32_t EncryptCredFileData(const uint8_t *plain, uint32_t plainLen, int3
         HcFree(buf);
         return IS_ERR_MEMORY_COPY;
     }
-    KeyParams keyParams = { { aliasVal, aliasLen, true }, true, osAccountId };
+    KeyParams keyParams = { { aliasVal, aliasLen, true }, false, osAccountId };
     GcmParam gcmParam = { nonce, CRED_FILE_ENC_NONCE_LEN, (uint8_t *)CRED_FILE_ENC_AAD,
         CRED_FILE_ENC_AAD_LEN };
     Uint8Buff plainBuff = { (uint8_t *)plain, plainLen };
@@ -494,7 +494,7 @@ static int32_t DecryptCredFileToParcel(const uint8_t *fileData, uint32_t fileLen
         LOGE("[CRED#DB]: alloc plain buf failed.");
         return IS_ERR_ALLOC_MEMORY;
     }
-    KeyParams keyParams = { { aliasVal, aliasLen, true }, true, osAccountId };
+    KeyParams keyParams = { { aliasVal, aliasLen, true }, false, osAccountId };
     GcmParam gcmParam = { (uint8_t *)nonce, CRED_FILE_ENC_NONCE_LEN, (uint8_t *)CRED_FILE_ENC_AAD,
         CRED_FILE_ENC_AAD_LEN };
     Uint8Buff cipherBuff = { (uint8_t *)(fileData + CRED_FILE_ENC_NONCE_LEN), cipherLen };
