@@ -384,6 +384,7 @@ static bool CredFileEncKeyExist(int32_t osAccountId)
     uint8_t aliasVal[CRED_FILE_ENC_ALIAS_MAX_LEN];
     uint32_t aliasLen = 0;
     if (BuildCredFileEncKeyAlias(osAccountId, aliasVal, sizeof(aliasVal), &aliasLen) != IS_SUCCESS) {
+        LOGE("[CRED#DB]: build alias for key exist check failed!");
         return false;
     }
     Uint8Buff keyAlias = { aliasVal, aliasLen };
@@ -395,6 +396,7 @@ static int32_t EnsureCredFileEncKeyExist(int32_t osAccountId)
     uint8_t aliasVal[CRED_FILE_ENC_ALIAS_MAX_LEN];
     uint32_t aliasLen = 0;
     if (BuildCredFileEncKeyAlias(osAccountId, aliasVal, sizeof(aliasVal), &aliasLen) != IS_SUCCESS) {
+        LOGE("[CRED#DB]: build alias for key ensure failed!");
         return IS_ERR_CONVERT_FAILED;
     }
     Uint8Buff keyAlias = { aliasVal, aliasLen };
@@ -423,10 +425,12 @@ static void DeleteCredFileEncKey(int32_t osAccountId)
     uint8_t aliasVal[CRED_FILE_ENC_ALIAS_MAX_LEN];
     uint32_t aliasLen = 0;
     if (BuildCredFileEncKeyAlias(osAccountId, aliasVal, sizeof(aliasVal), &aliasLen) != IS_SUCCESS) {
+        LOGE("[CRED#DB]: build alias for key delete failed!");
         return;
     }
     Uint8Buff keyAlias = { aliasVal, aliasLen };
     (void)GetLoaderInstance()->deleteKey(&keyAlias, false, osAccountId);
+    LOGI("[CRED#DB]: cred file enc key deleted. [Id]: %" LOG_PUB "d", osAccountId);
 }
 
 static int32_t EncryptCredFileData(const uint8_t *plain, uint32_t plainLen, int32_t osAccountId,
