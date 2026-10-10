@@ -1302,11 +1302,10 @@ int32_t DelCredential(int32_t osAccountId, const CJson *in, const QueryCredentia
     return DelCredentialInner(osAccountId, subProfileId, true, params);
 }
 
-static int32_t QueryCredentialsInner(int32_t osAccountId, bool isProfileDelete, int32_t subProfileId,
+static int32_t QueryCredentialsInner(int32_t osAccountId, int32_t subProfileId,
     const QueryCredentialParams *params, CredentialVec *vec)
 {
     (void)subProfileId;
-    (void)isProfileDelete;
     (void)LockHcMutex(g_credMutex);
     OsAccountCredInfo *info = GetCredInfoByOsAccountId(osAccountId);
     if (info == NULL) {
@@ -1320,16 +1319,14 @@ static int32_t QueryCredentialsInner(int32_t osAccountId, bool isProfileDelete, 
             continue;
         }
     #ifdef DEVAUTH_ENABLE_OS_ACCOUNT_MULTI_PROFILE
-        if (isProfileDelete || ((*entry)->credType != ACCOUNT_UNRELATED)) {
-            bool isReferenced = false;
-            int32_t res = IsCredReferencedByUser(osAccountId, subProfileId,
-                StringGet(&(*entry)->credId), &isReferenced);
-            if (res != HC_SUCCESS) {
-                LOGE("Failed to check cred reference by user, assume referenced for safety.");
-                continue;
-            } else if (!isReferenced) {
-                continue;
-            }
+        bool isReferenced = false;
+        int32_t res = IsCredReferencedByUser(osAccountId, subProfileId,
+            StringGet(&(*entry)->credId), &isReferenced);
+        if (res != HC_SUCCESS) {
+            LOGE("Failed to check cred reference by user, assume not referenced for safety.");
+            continue;
+        } else if (!isReferenced) {
+            continue;
         }
     #endif
         Credential *newEntry = DeepCopyCredential(*entry);
@@ -1360,7 +1357,7 @@ int32_t QueryCredentials(int32_t osAccountId, const CJson *in, const QueryCreden
         return res;
     }
 #endif
-    return QueryCredentialsInner(osAccountId, false, subProfileId, params, vec);
+    return QueryCredentialsInner(osAccountId, subProfileId, params, vec);
 }
 
 int32_t SaveOsAccountCredDb(int32_t osAccountId)
@@ -1499,7 +1496,7 @@ static void OnSubProfileDeleted(int32_t osAccountId, int32_t subProfileId)
     uint32_t index;
     CredentialVec credentialVec = CreateCredentialVec();
     QueryCredentialParams params = InitQueryCredentialParams();
-    if (QueryCredentialsInner(osAccountId, true, subProfileId, &params, &credentialVec) != IS_SUCCESS) {
+    if (QueryCredentialsInner(osAccountId, subProfileId, &params, &credentialVec) != IS_SUCCESS) {
         LOGE("Failed to query credentials for subProfile!");
         ClearCredentialVec(&credentialVec);
         return;
