@@ -35,6 +35,7 @@
 #include "cred_tlv_parser.h"
 #include "identity_service_defines.h"
 #include "string_util.h"
+#include "hisysevent_adapter.h"
 
 typedef struct {
     DECLARE_CRED_TLV_STRUCT(17)
@@ -414,6 +415,7 @@ static int32_t EnsureCredFileEncKeyExist(int32_t osAccountId)
         KEY_PURPOSE_KEY_ENCRYPT);
     if (ret != HAL_SUCCESS) {
         LOGE("[CRED#DB]: generate cred file enc key failed, res: %" LOG_PUB "d", ret);
+        DEV_AUTH_REPORT_FAULT_EVENT_WITH_ERR_CODE(CRED_FILE_KEY_GEN_EVENT, PROCESS_CRED_FILE_KEY_GEN, ret);
         return IS_ERR_INIT_FAILED;
     }
     LOGI("[CRED#DB]: cred file enc key created. [Id]: %" LOG_PUB "d", osAccountId);
@@ -469,6 +471,7 @@ static int32_t EncryptCredFileData(const uint8_t *plain, uint32_t plainLen, int3
     ret = GetLoaderInstance()->aesGcmEncrypt(&keyParams, &plainBuff, &gcmParam, &cipherBuff);
     if (ret != HAL_SUCCESS) {
         LOGE("[CRED#DB]: aesGcmEncrypt cred file failed, res: %" LOG_PUB "d", ret);
+        DEV_AUTH_REPORT_FAULT_EVENT_WITH_ERR_CODE(CRED_FILE_ENCRYPT_EVENT, PROCESS_CRED_FILE_ENCRYPT, ret);
         HcFree(buf);
         return ret;
     }
@@ -506,6 +509,7 @@ static int32_t DecryptCredFileToParcel(const uint8_t *fileData, uint32_t fileLen
     int32_t ret = GetLoaderInstance()->aesGcmDecrypt(&keyParams, &cipherBuff, &gcmParam, &plainBuff);
     if (ret != HAL_SUCCESS) {
         LOGE("[CRED#DB]: aesGcmDecrypt cred file failed, res: %" LOG_PUB "d", ret);
+        DEV_AUTH_REPORT_FAULT_EVENT_WITH_ERR_CODE(CRED_FILE_DECRYPT_EVENT, PROCESS_CRED_FILE_DECRYPT, ret);
         HcFree(plain);
         return ret;
     }
@@ -620,6 +624,8 @@ static void EnsureCredFileEncState(const char *filePath, int32_t osAccountId)
     }
     if (!SaveParcelToFile(filePath, &parcel, osAccountId, true)) {
         LOGW("[CRED#DB]: upgrade write failed, rollback key! [Id]: %" LOG_PUB "d", osAccountId);
+        DEV_AUTH_REPORT_FAULT_EVENT_WITH_ERR_CODE(CRED_FILE_UPGRADE_EVENT,
+            PROCESS_CRED_FILE_UPGRADE, IS_ERR_MEMORY_COPY);
         DeleteCredFileEncKey(osAccountId);
     } else {
         LOGI("[CRED#DB]: cred file upgrade success. [Id]: %" LOG_PUB "d", osAccountId);
@@ -639,6 +645,7 @@ static bool ReadCredFileToParcel(const char *filePath, int32_t osAccountId, HcPa
         ok = (DecryptCredFileToParcel(fileData, (uint32_t)fileLen, osAccountId, parcel) == IS_SUCCESS);
         if (!ok) {
             LOGE("[CRED#DB]: decrypt cred file failed (tamper or key lost), reject!");
+            DEV_AUTH_REPORT_FAULT_EVENT_WITH_ERR_CODE(CRED_FILE_DECRYPT_EVENT, PROCESS_CRED_FILE_DECRYPT, HAL_ERR_HUKS);
         }
     } else {
         ok = ParcelWrite(parcel, fileData, fileLen);
