@@ -387,7 +387,7 @@ static bool CredFileEncKeyExist(int32_t osAccountId)
         return false;
     }
     Uint8Buff keyAlias = { aliasVal, aliasLen };
-    return (GetLoaderInstance()->checkKeyExist(&keyAlias, true, osAccountId) == HAL_SUCCESS);
+    return (GetLoaderInstance()->checkKeyExist(&keyAlias, false, osAccountId) == HAL_SUCCESS);
 }
 
 static int32_t EnsureCredFileEncKeyExist(int32_t osAccountId)
@@ -398,7 +398,7 @@ static int32_t EnsureCredFileEncKeyExist(int32_t osAccountId)
         return IS_ERR_CONVERT_FAILED;
     }
     Uint8Buff keyAlias = { aliasVal, aliasLen };
-    int32_t ret = GetLoaderInstance()->checkKeyExist(&keyAlias, true, osAccountId);
+    int32_t ret = GetLoaderInstance()->checkKeyExist(&keyAlias, false, osAccountId);
     if (ret == HAL_SUCCESS) {
         return IS_SUCCESS;
     }
