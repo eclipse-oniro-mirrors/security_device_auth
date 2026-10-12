@@ -449,6 +449,36 @@ static void DeleteCredFileEncKey(int32_t osAccountId)
     }
 }
 
+static int32_t GenerateEncNonce(uint8_t *nonce, uint32_t nonceLen)
+{
+    Uint8Buff nonceBuff = { nonce, nonceLen };
+    int32_t ret = GetLoaderInstance()->generateRandom(&nonceBuff);
+    if (ret != HAL_SUCCESS) {
+        LOGE("[CRED#DB]: generate nonce failed, res: %" LOG_PUB "d", ret);
+    }
+    return ret;
+}
+
+static void CleanEncSensitiveData(uint8_t *aliasVal, uint32_t aliasSize,
+    uint8_t *nonce, uint32_t nonceSize)
+{
+    (void)memset_s(aliasVal, aliasSize, 0, aliasSize);
+    (void)memset_s(nonce, nonceSize, 0, nonceSize);
+}
+
+static int32_t DoAesGcmEncrypt(const uint8_t *plain, uint32_t plainLen, int32_t osAccountId,
+    const uint8_t *aliasVal, uint32_t aliasLen, uint8_t *nonce, uint8_t *buf, uint32_t totalLen)
+{
+    uint32_t cipherLen = plainLen + AE_TAG_LEN;
+    KeyParams keyParams = { { (uint8_t *)aliasVal, aliasLen, true }, false, osAccountId };
+    GcmParam gcmParam = { nonce, CRED_FILE_ENC_NONCE_LEN, (uint8_t *)CRED_FILE_ENC_AAD,
+        CRED_FILE_ENC_AAD_LEN };
+    Uint8Buff plainBuff = { (uint8_t *)plain, plainLen };
+    Uint8Buff cipherBuff = { buf + CRED_FILE_ENC_NONCE_LEN, cipherLen };
+    (void)totalLen;
+    return GetLoaderInstance()->aesGcmEncrypt(&keyParams, &plainBuff, &gcmParam, &cipherBuff);
+}
+
 static int32_t EncryptCredFileData(const uint8_t *plain, uint32_t plainLen, int32_t osAccountId,
     uint8_t **outEnc, uint32_t *outEncLen)
 {
@@ -459,17 +489,14 @@ static int32_t EncryptCredFileData(const uint8_t *plain, uint32_t plainLen, int3
         return IS_ERR_CONVERT_FAILED;
     }
     uint8_t nonce[CRED_FILE_ENC_NONCE_LEN];
-    Uint8Buff nonceBuff = { nonce, CRED_FILE_ENC_NONCE_LEN };
-    int32_t ret = GetLoaderInstance()->generateRandom(&nonceBuff);
+    int32_t ret = GenerateEncNonce(nonce, CRED_FILE_ENC_NONCE_LEN);
     if (ret != HAL_SUCCESS) {
-        LOGE("[CRED#DB]: generate nonce failed, res: %" LOG_PUB "d", ret);
-        (void)memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal));
+        CleanEncSensitiveData(aliasVal, sizeof(aliasVal), nonce, sizeof(nonce));
         return ret;
     }
     if (plainLen > MAX_TOTOL_LEN) {
         LOGE("[CRED#DB]: plain too large, len: %" LOG_PUB "u", plainLen);
-        (void)memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal));
-        (void)memset_s(nonce, sizeof(nonce), 0, sizeof(nonce));
+        CleanEncSensitiveData(aliasVal, sizeof(aliasVal), nonce, sizeof(nonce));
         return IS_ERR_INVALID_PARAMS;
     }
     uint32_t cipherLen = plainLen + AE_TAG_LEN;
@@ -477,25 +504,17 @@ static int32_t EncryptCredFileData(const uint8_t *plain, uint32_t plainLen, int3
     uint8_t *buf = (uint8_t *)HcMalloc(totalLen, 0);
     if (buf == NULL) {
         LOGE("[CRED#DB]: alloc enc buf failed.");
-        (void)memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal));
-        (void)memset_s(nonce, sizeof(nonce), 0, sizeof(nonce));
+        CleanEncSensitiveData(aliasVal, sizeof(aliasVal), nonce, sizeof(nonce));
         return IS_ERR_ALLOC_MEMORY;
     }
     if (memcpy_s(buf, totalLen, nonce, CRED_FILE_ENC_NONCE_LEN) != EOK) {
         LOGE("[CRED#DB]: memcpy nonce to enc buf failed!");
         HcFree(buf);
-        (void)memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal));
-        (void)memset_s(nonce, sizeof(nonce), 0, sizeof(nonce));
+        CleanEncSensitiveData(aliasVal, sizeof(aliasVal), nonce, sizeof(nonce));
         return IS_ERR_MEMORY_COPY;
     }
-    KeyParams keyParams = { { aliasVal, aliasLen, true }, false, osAccountId };
-    GcmParam gcmParam = { nonce, CRED_FILE_ENC_NONCE_LEN, (uint8_t *)CRED_FILE_ENC_AAD,
-        CRED_FILE_ENC_AAD_LEN };
-    Uint8Buff plainBuff = { (uint8_t *)plain, plainLen };
-    Uint8Buff cipherBuff = { buf + CRED_FILE_ENC_NONCE_LEN, cipherLen };
-    ret = GetLoaderInstance()->aesGcmEncrypt(&keyParams, &plainBuff, &gcmParam, &cipherBuff);
-    (void)memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal));
-    (void)memset_s(nonce, sizeof(nonce), 0, sizeof(nonce));
+    ret = DoAesGcmEncrypt(plain, plainLen, osAccountId, aliasVal, aliasLen, nonce, buf, totalLen);
+    CleanEncSensitiveData(aliasVal, sizeof(aliasVal), nonce, sizeof(nonce));
     if (ret != HAL_SUCCESS) {
         LOGE("[CRED#DB]: aesGcmEncrypt cred file failed, res: %" LOG_PUB "d", ret);
         DEV_AUTH_REPORT_FAULT_EVENT_WITH_ERR_CODE(CRED_FILE_ENCRYPT_EVENT,

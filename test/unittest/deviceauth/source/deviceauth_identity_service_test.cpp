@@ -1,43 +1,10 @@
-/*
- * Copyright (C) 2025 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include <cinttypes>
 #include <unistd.h>
 #include <gtest/gtest.h>
-#include "alg_defs.h"
-#include "alg_loader.h"
-#include "hal_error.h"
 #include "common_defs.h"
-#include "compatible_sub_session.h"
 #include "device_auth.h"
 #include "device_auth_defines.h"
-#include "device_auth_ext.h"
-#include "hc_dev_info_mock.h"
-#include "json_utils_mock.h"
-#include "permission_adapter.h"
 #include "json_utils.h"
-#include "string_util.h"
-#include "protocol_task_main_mock.h"
-#include "securec.h"
-#include "hc_file.h"
-#include <dirent.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include "hc_log.h"
-#include "hc_types.h"
 #include "base/security/device_auth/services/identity_service/src/identity_operation.c"
 #include "base/security/device_auth/services/identity_service/src/identity_service_impl.c"
 #include "base/security/device_auth/services/identity_service/session/src/cred_session_util.c"
@@ -45,12 +12,12 @@
 extern "C" const AlgLoader *GetLoaderInstance_TestOverride(void);
 #include "base/security/device_auth/services/data_manager/cred_data_manager/src/credential_data_manager.c"
 #undef GetLoaderInstance
-
+#include "compatible_sub_session.h"
+#include "hc_dev_info_mock.h"
+#include "device_auth_ext.h"
 #include "cred_listener.h"
-
 using namespace std;
 using namespace testing::ext;
-
 namespace {
 #define TEST_RESULT_SUCCESS 0
 #define TEST_APP_ID "TestAppId"
@@ -75,9 +42,9 @@ namespace {
 #define QUERY_RESULT_NUM_2 2
 #define DATA_LEN 10
 #define DEFAULT_OS_ACCOUNT_ID 100
-#define DEFAULT_VAL 0
-#define DEFAULT_CHANNEL_TYPE 0
 #define TEST_DEV_AUTH_SLEEP_TIME 50000
+#define DEFAULT_CHANNEL_TYPE 0
+#define DEFAULT_VAL 0
 #define TEST_CRED_DATA_PATH "/data/service/el1/public/deviceauthMock/hccredential.dat"
 static const char *TEST_DATA = "testData";
 static const char *ADD_PARAMS =
@@ -154,18 +121,6 @@ static const char *ADD_PARAMS9 =
     "\"credOwner\":\"TestAppId\","
     "\"authorizedAppList\":[\"TestName1\",\"TestName2\",\"TestName3\"],"
     "\"peerUserSpaceId\":100,\"extendInfo\":\"\"}";
-static const char *ADD_PARAMS10 =
-    "{\"credType\":1,\"keyFormat\":4,\"algorithmType\":3,\"subject\":1,\"issuer\":1,"
-    "\"proofType\":1,\"method\":1,\"authorizedScope\":1,\"userId\":\"TestUserId\","
-    "\"deviceId\":\"TestDeviceId\","
-    "\"authorizedAppList\":[\"TestName1\",\"TestName2\",\"TestName3\"],"
-    "\"peerUserSpaceId\":100,\"extendInfo\":\"\"}";
-static const char *ADD_PARAMS11 =
-    "{\"credType\":1,\"keyFormat\":4,\"algorithmType\":3,\"subject\":1,\"issuer\":1,"
-    "\"proofType\":1,\"method\":1,\"authorizedScope\":1,"
-    "\"deviceId\":\"TestDeviceId\",\"credOwner\":\"TestAppId\","
-    "\"authorizedAppList\":[\"TestName1\",\"TestName2\",\"TestName3\"],"
-    "\"peerUserSpaceId\":100,\"extendInfo\":\"\"}";
 static const char *ADD_PARAMS12 =
     "{\"credType\":1,\"keyFormat\":4,\"algorithmType\":3,\"subject\":1,\"issuer\":1,"
     "\"proofType\":1,\"method\":2,\"authorizedScope\":1,\"userId\":\"TestUserId\","
@@ -219,7 +174,6 @@ static const char *BATCH_UPDATE_PARAMS1 =
     "{\"baseInfo\":{\"credType\":1,\"keyFormat\":2,\"algorithmType\":3,\"subject\":2,\"authorizedScope\":2,"
     "\"issuer\":1,\"proofType\":2,\"credOwner\":\"TestAppId\"},"
     "\"updateLists\":[{\"userId\":\"TestUserId\",\"deviceId\":\"TestDeviceId\"}]}";
-
 static const char *CRED_DATA =
     "{\"keyFormat\":4,\"algorithmType\":3,\"subject\":1,\"issuer\":1,"
     "\"proofType\":1,\"method\":1,\"authorizedScope\":1,\"userId\":\"TestUserId\","
@@ -229,7 +183,6 @@ static const char *CRED_DATA_1 =
     "\"proofType\":1,\"method\":1,\"authorizedScope\":1,\"userId\":\"TestUserId\","
     "\"deviceId\":\"TestDeviceId\",\"credOwner\":\"TestAppId\","
     "\"peerUserSpaceId\":100,\"extendInfo\":\"\"}";
-
 static const char *QUERY_PARAMS = "{\"deviceId\":\"TestDeviceId\"}";
 static const char *QUERY_PARAMS1 = "{\"deviceId\":\"TestDeviceId1\"}";
 static const char *DEL_PARAMS = "{\"credOwner\":\"TestAppId\"}";
@@ -240,7 +193,6 @@ enum AsyncStatus {
     ASYNC_STATUS_FINISH = 2,
     ASYNC_STATUS_ERROR = 3
 };
-
 static AsyncStatus volatile g_asyncStatus;
 static uint32_t g_transmitDataMaxLen = 2048;
 static uint8_t g_transmitData[2048] = { 0 };
@@ -249,48 +201,40 @@ static bool g_isBind = false;
 static char g_clientCredId[256] = { 0 };
 static char g_serverCredId[256] = { 0 };
 static const char *PIN_CODE = "000000";
-
 enum CredListenerStatus {
     CRED_LISTENER_INIT = 0,
     CRED_LISTENER_ON_ADD = 1,
     CRED_LISTENER_ON_UPDATE = 2,
     CRED_LISTENER_ON_DELETE = 3,
 };
-
 static CredListenerStatus volatile g_credListenerStatus;
-
 static void TestOnCredAdd(const char *credId, const char *credInfo)
 {
     (void)credId;
     (void)credInfo;
     g_credListenerStatus = CRED_LISTENER_ON_ADD;
 }
-
 static void TestOnCredUpdate(const char *credId, const char *credInfo)
 {
     (void)credId;
     (void)credInfo;
     g_credListenerStatus = CRED_LISTENER_ON_UPDATE;
 }
-
 static void TestOnCredDelete(const char *credId, const char *credInfo)
 {
     (void)credId;
     (void)credInfo;
     g_credListenerStatus = CRED_LISTENER_ON_DELETE;
 }
-
 static CredChangeListener g_credChangeListener = {
     .onCredAdd = TestOnCredAdd,
     .onCredUpdate = TestOnCredUpdate,
     .onCredDelete = TestOnCredDelete,
 };
-
 static void DeleteDatabase()
 {
     HcFileRemove(TEST_CRED_DATA_PATH);
 }
-
 static bool CompareSubject(Credential *credential, QueryCredentialParams *params)
 {
     credential->subject = SUBJECT_ACCESSORY_DEVICE;
@@ -305,7 +249,6 @@ static bool CompareSubject(Credential *credential, QueryCredentialParams *params
     params->subject = DEFAULT_CRED_PARAM_VAL;
     return ret;
 }
-
 static bool CompareIssuer(Credential *credential, QueryCredentialParams *params)
 {
     credential->issuer = SYSTEM_ACCOUNT;
@@ -320,7 +263,6 @@ static bool CompareIssuer(Credential *credential, QueryCredentialParams *params)
     params->issuer = DEFAULT_CRED_PARAM_VAL;
     return ret;
 }
-
 static bool CompareOwnerUid(Credential *credential, QueryCredentialParams *params)
 {
     credential->ownerUid = TEST_OWNER_UID_1;
@@ -335,7 +277,6 @@ static bool CompareOwnerUid(Credential *credential, QueryCredentialParams *param
     params->ownerUid = DEFAULT_CRED_PARAM_VAL;
     return ret;
 }
-
 static bool CompareAuthorziedScope(Credential *credential, QueryCredentialParams *params)
 {
     credential->authorizedScope = SCOPE_DEVICE;
@@ -350,7 +291,6 @@ static bool CompareAuthorziedScope(Credential *credential, QueryCredentialParams
     params->authorizedScope = DEFAULT_CRED_PARAM_VAL;
     return ret;
 }
-
 static bool CompareKeyFormat(Credential *credential, QueryCredentialParams *params)
 {
     credential->keyFormat = SYMMETRIC_KEY;
@@ -365,7 +305,6 @@ static bool CompareKeyFormat(Credential *credential, QueryCredentialParams *para
     params->keyFormat = DEFAULT_CRED_PARAM_VAL;
     return ret;
 }
-
 static bool CompareAlgorithmType(Credential *credential, QueryCredentialParams *params)
 {
     credential->algorithmType = ALGO_TYPE_AES_256;
@@ -380,7 +319,6 @@ static bool CompareAlgorithmType(Credential *credential, QueryCredentialParams *
     params->algorithmType = DEFAULT_CRED_PARAM_VAL;
     return ret;
 }
-
 static bool CompareProofType(Credential *credential, QueryCredentialParams *params)
 {
     credential->proofType = PROOF_TYPE_PSK;
@@ -395,7 +333,6 @@ static bool CompareProofType(Credential *credential, QueryCredentialParams *para
     params->proofType = DEFAULT_CRED_PARAM_VAL;
     return ret;
 }
-
 class GetCredMgrInstanceTest : public testing::Test {
 public:
     static void SetUpTestCase();
@@ -403,27 +340,22 @@ public:
     void SetUp();
     void TearDown();
 };
-
 void GetCredMgrInstanceTest::SetUpTestCase() {}
 void GetCredMgrInstanceTest::TearDownTestCase() {}
-
 void GetCredMgrInstanceTest::SetUp()
 {
     int ret = InitDeviceAuthService();
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 void GetCredMgrInstanceTest::TearDown()
 {
     DestroyDeviceAuthService();
 }
-
 HWTEST_F(GetCredMgrInstanceTest, GetCredMgrInstanceTest001, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
     EXPECT_NE(cm, nullptr);
 }
-
 HWTEST_F(GetCredMgrInstanceTest, GetCredMgrInstanceTest002, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -436,7 +368,6 @@ HWTEST_F(GetCredMgrInstanceTest, GetCredMgrInstanceTest002, TestSize.Level0)
     cm->destroyInfo(&returnData);
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 class CredMgrAddCredentialTest : public testing::Test {
 public:
     static void SetUpTestCase();
@@ -444,22 +375,18 @@ public:
     void SetUp();
     void TearDown();
 };
-
 void CredMgrAddCredentialTest::SetUpTestCase() {}
 void CredMgrAddCredentialTest::TearDownTestCase() {}
-
 void CredMgrAddCredentialTest::SetUp()
 {
     DeleteDatabase();
     int ret = InitDeviceAuthService();
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 void CredMgrAddCredentialTest::TearDown()
 {
     DestroyDeviceAuthService();
 }
-
 HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest001, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -469,7 +396,6 @@ HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest001, TestSize.Level0)
     cm->destroyInfo(&returnData);
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest002, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -478,7 +404,6 @@ HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest002, TestSize.Level0)
     int32_t ret = cm->addCredential(DEFAULT_OS_ACCOUNT, nullptr, &returnData);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest003, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -486,7 +411,6 @@ HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest003, TestSize.Level0)
     int32_t ret = cm->addCredential(DEFAULT_OS_ACCOUNT, ADD_PARAMS, nullptr);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest004, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -495,7 +419,6 @@ HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest004, TestSize.Level0)
     int32_t ret = cm->addCredential(DEFAULT_OS_ACCOUNT, ADD_PARAMS1, &returnData);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest005, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -504,7 +427,6 @@ HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest005, TestSize.Level0)
     int32_t ret = cm->addCredential(DEFAULT_OS_ACCOUNT, ADD_PARAMS2, &returnData);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest006, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -513,7 +435,6 @@ HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest006, TestSize.Level0)
     int32_t ret = cm->addCredential(DEFAULT_OS_ACCOUNT, ADD_PARAMS3, &returnData);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest007, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -522,7 +443,6 @@ HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest007, TestSize.Level0)
     int32_t ret = cm->addCredential(DEFAULT_OS_ACCOUNT, ADD_PARAMS4, &returnData);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest008, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -531,7 +451,6 @@ HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest008, TestSize.Level0)
     int32_t ret = cm->addCredential(DEFAULT_OS_ACCOUNT, ADD_PARAMS5, &returnData);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest009, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -540,7 +459,6 @@ HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest009, TestSize.Level0)
     int32_t ret = cm->addCredential(DEFAULT_OS_ACCOUNT, ADD_PARAMS6, &returnData);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest010, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -549,7 +467,6 @@ HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest010, TestSize.Level0)
     int32_t ret = cm->addCredential(DEFAULT_OS_ACCOUNT, ADD_PARAMS7, &returnData);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest011, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -558,7 +475,6 @@ HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest011, TestSize.Level0)
     int32_t ret = cm->addCredential(DEFAULT_OS_ACCOUNT, ADD_PARAMS8, &returnData);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest012, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -567,25 +483,6 @@ HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest012, TestSize.Level0)
     int32_t ret = cm->addCredential(DEFAULT_OS_ACCOUNT, ADD_PARAMS9, &returnData);
     EXPECT_EQ(ret, IS_ERR_JSON_GET);
 }
-
-HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest013, TestSize.Level0)
-{
-    const CredManager *cm = GetCredMgrInstance();
-    ASSERT_NE(cm, nullptr);
-    char *returnData = nullptr;
-    int32_t ret = cm->addCredential(DEFAULT_OS_ACCOUNT, ADD_PARAMS10, &returnData);
-    EXPECT_EQ(ret, IS_ERR_JSON_GET);
-}
-
-HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest014, TestSize.Level0)
-{
-    const CredManager *cm = GetCredMgrInstance();
-    ASSERT_NE(cm, nullptr);
-    char *returnData = nullptr;
-    int32_t ret = cm->addCredential(DEFAULT_OS_ACCOUNT, ADD_PARAMS11, &returnData);
-    EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
-}
-
 HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest015, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -594,7 +491,6 @@ HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest015, TestSize.Level0)
     int32_t ret = cm->addCredential(DEFAULT_OS_ACCOUNT, ADD_PARAMS12, &returnData);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest016, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -603,7 +499,6 @@ HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest016, TestSize.Level0)
     int32_t ret = cm->addCredential(DEFAULT_OS_ACCOUNT, ADD_PARAMS13, &returnData);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest017, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -612,7 +507,6 @@ HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest017, TestSize.Level0)
     int32_t ret = cm->addCredential(DEFAULT_OS_ACCOUNT, ADD_PARAMS15, &returnData);
     EXPECT_EQ(ret, IS_ERR_KEYVALUE_METHOD_CONFLICT);
 }
-
 HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest018, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -624,7 +518,6 @@ HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest018, TestSize.Level0)
     HcFree(credId);
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest019, TestSize.Level0)
 {
     Credential *credential = CreateCredential();
@@ -653,7 +546,6 @@ HWTEST_F(CredMgrAddCredentialTest, CredMgrAddCredentialTest019, TestSize.Level0)
     EXPECT_EQ(ret, false);
     DestroyCredential(credential);
 }
-
 class CredMgrExportCredentialTest : public testing::Test {
 public:
     static void SetUpTestCase();
@@ -661,23 +553,18 @@ public:
     void SetUp();
     void TearDown();
 };
-
-
 void CredMgrExportCredentialTest::SetUpTestCase() {}
 void CredMgrExportCredentialTest::TearDownTestCase() {}
-
 void CredMgrExportCredentialTest::SetUp()
 {
     DeleteDatabase();
     int ret = InitDeviceAuthService();
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 void CredMgrExportCredentialTest::TearDown()
 {
     DestroyDeviceAuthService();
 }
-
 HWTEST_F(CredMgrExportCredentialTest, CredMgrExportCredentialTest001, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -691,7 +578,6 @@ HWTEST_F(CredMgrExportCredentialTest, CredMgrExportCredentialTest001, TestSize.L
     cm->destroyInfo(&returnData);
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 HWTEST_F(CredMgrExportCredentialTest, CredMgrExportCredentialTest002, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -703,7 +589,6 @@ HWTEST_F(CredMgrExportCredentialTest, CredMgrExportCredentialTest002, TestSize.L
     ret = cm->exportCredential(DEFAULT_OS_ACCOUNT, credId, &returnData);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrExportCredentialTest, CredMgrExportCredentialTest003, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -715,7 +600,6 @@ HWTEST_F(CredMgrExportCredentialTest, CredMgrExportCredentialTest003, TestSize.L
     HcFree(credId);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrExportCredentialTest, CredMgrExportCredentialTest004, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -728,7 +612,6 @@ HWTEST_F(CredMgrExportCredentialTest, CredMgrExportCredentialTest004, TestSize.L
     ret = cm->exportCredential(DEFAULT_OS_ACCOUNT, nullptr, &returnData);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 class CredMgrQueryCredentialByParamsTest : public testing::Test {
 public:
     static void SetUpTestCase();
@@ -736,22 +619,18 @@ public:
     void SetUp();
     void TearDown();
 };
-
 void CredMgrQueryCredentialByParamsTest::SetUpTestCase() {}
 void CredMgrQueryCredentialByParamsTest::TearDownTestCase() {}
-
 void CredMgrQueryCredentialByParamsTest::SetUp()
 {
     DeleteDatabase();
     int ret = InitDeviceAuthService();
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 void CredMgrQueryCredentialByParamsTest::TearDown()
 {
     DestroyDeviceAuthService();
 }
-
 HWTEST_F(CredMgrQueryCredentialByParamsTest, CredMgrQueryCredentialByParamsTest001, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -773,7 +652,6 @@ HWTEST_F(CredMgrQueryCredentialByParamsTest, CredMgrQueryCredentialByParamsTest0
     FreeJson(jsonArr);
     EXPECT_EQ(size, QUERY_RESULT_NUM_2);
 }
-
 HWTEST_F(CredMgrQueryCredentialByParamsTest, CredMgrQueryCredentialByParamsTest002, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -782,7 +660,6 @@ HWTEST_F(CredMgrQueryCredentialByParamsTest, CredMgrQueryCredentialByParamsTest0
     int32_t ret = cm->queryCredentialByParams(DEFAULT_OS_ACCOUNT, nullptr, &credIdList);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrQueryCredentialByParamsTest, CredMgrQueryCredentialByParamsTest003, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -790,7 +667,6 @@ HWTEST_F(CredMgrQueryCredentialByParamsTest, CredMgrQueryCredentialByParamsTest0
     int32_t ret = cm->queryCredentialByParams(DEFAULT_OS_ACCOUNT, QUERY_PARAMS, nullptr);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrQueryCredentialByParamsTest, CredMgrQueryCredentialByParamsTest004, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -808,7 +684,6 @@ HWTEST_F(CredMgrQueryCredentialByParamsTest, CredMgrQueryCredentialByParamsTest0
     FreeJson(jsonArr);
     EXPECT_EQ(size, QUERY_RESULT_NUM);
 }
-
 class CredMgrQueryCredInfoByCredIdTest : public testing::Test {
 public:
     static void SetUpTestCase();
@@ -816,22 +691,18 @@ public:
     void SetUp();
     void TearDown();
 };
-
 void CredMgrQueryCredInfoByCredIdTest::SetUpTestCase() {}
 void CredMgrQueryCredInfoByCredIdTest::TearDownTestCase() {}
-
 void CredMgrQueryCredInfoByCredIdTest::SetUp()
 {
     DeleteDatabase();
     int ret = InitDeviceAuthService();
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 void CredMgrQueryCredInfoByCredIdTest::TearDown()
 {
     DestroyDeviceAuthService();
 }
-
 HWTEST_F(CredMgrQueryCredInfoByCredIdTest, CredMgrQueryCredInfoByCredIdTest001, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -849,7 +720,6 @@ HWTEST_F(CredMgrQueryCredInfoByCredIdTest, CredMgrQueryCredInfoByCredIdTest001, 
     EXPECT_EQ(IsStrEqual(deviceId, TEST_DEVICE_ID), true);
     FreeJson(credInfoJson);
 }
-
 HWTEST_F(CredMgrQueryCredInfoByCredIdTest, CredMgrQueryCredInfoByCredIdTest002, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -858,7 +728,6 @@ HWTEST_F(CredMgrQueryCredInfoByCredIdTest, CredMgrQueryCredInfoByCredIdTest002, 
     int32_t ret = cm->queryCredInfoByCredId(DEFAULT_OS_ACCOUNT, nullptr, &returnCredInfo);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrQueryCredInfoByCredIdTest, CredMgrQueryCredInfoByCredIdTest003, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -870,7 +739,6 @@ HWTEST_F(CredMgrQueryCredInfoByCredIdTest, CredMgrQueryCredInfoByCredIdTest003, 
     HcFree(credId);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 class CredMgrDeleteCredentialTest : public testing::Test {
 public:
     static void SetUpTestCase();
@@ -878,22 +746,18 @@ public:
     void SetUp();
     void TearDown();
 };
-
 void CredMgrDeleteCredentialTest::SetUpTestCase() {}
 void CredMgrDeleteCredentialTest::TearDownTestCase() {}
-
 void CredMgrDeleteCredentialTest::SetUp()
 {
     DeleteDatabase();
     int ret = InitDeviceAuthService();
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 void CredMgrDeleteCredentialTest::TearDown()
 {
     DestroyDeviceAuthService();
 }
-
 HWTEST_F(CredMgrDeleteCredentialTest, CredMgrDeleteCredentialTest001, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -905,7 +769,6 @@ HWTEST_F(CredMgrDeleteCredentialTest, CredMgrDeleteCredentialTest001, TestSize.L
     HcFree(credId);
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 HWTEST_F(CredMgrDeleteCredentialTest, CredMgrDeleteCredentialTest003, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -913,7 +776,6 @@ HWTEST_F(CredMgrDeleteCredentialTest, CredMgrDeleteCredentialTest003, TestSize.L
     int32_t ret = cm->deleteCredential(DEFAULT_OS_ACCOUNT, nullptr);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 class CredMgrUpdateCredInfoTest : public testing::Test {
 public:
     static void SetUpTestCase();
@@ -921,22 +783,18 @@ public:
     void SetUp();
     void TearDown();
 };
-
 void CredMgrUpdateCredInfoTest::SetUpTestCase() {}
 void CredMgrUpdateCredInfoTest::TearDownTestCase() {}
-
 void CredMgrUpdateCredInfoTest::SetUp()
 {
     DeleteDatabase();
     int ret = InitDeviceAuthService();
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 void CredMgrUpdateCredInfoTest::TearDown()
 {
     DestroyDeviceAuthService();
 }
-
 HWTEST_F(CredMgrUpdateCredInfoTest, CredMgrUpdateCredInfoTest001, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -948,7 +806,6 @@ HWTEST_F(CredMgrUpdateCredInfoTest, CredMgrUpdateCredInfoTest001, TestSize.Level
     HcFree(credId);
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 HWTEST_F(CredMgrUpdateCredInfoTest, CredMgrUpdateCredInfoTest002, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -960,7 +817,6 @@ HWTEST_F(CredMgrUpdateCredInfoTest, CredMgrUpdateCredInfoTest002, TestSize.Level
     HcFree(credId);
     EXPECT_EQ(ret, IS_ERR_JSON_CREATE);
 }
-
 HWTEST_F(CredMgrUpdateCredInfoTest, CredMgrUpdateCredInfoTest004, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -972,7 +828,6 @@ HWTEST_F(CredMgrUpdateCredInfoTest, CredMgrUpdateCredInfoTest004, TestSize.Level
     HcFree(credId);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 class CredMgrRegCredListenerTest : public testing::Test {
 public:
     static void SetUpTestCase();
@@ -980,22 +835,18 @@ public:
     void SetUp();
     void TearDown();
 };
-
 void CredMgrRegCredListenerTest::SetUpTestCase() {}
 void CredMgrRegCredListenerTest::TearDownTestCase() {}
-
 void CredMgrRegCredListenerTest::SetUp()
 {
     DeleteDatabase();
     int ret = InitDeviceAuthService();
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 void CredMgrRegCredListenerTest::TearDown()
 {
     DestroyDeviceAuthService();
 }
-
 HWTEST_F(CredMgrRegCredListenerTest, CredMgrRegCredListenerTest001, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -1004,7 +855,6 @@ HWTEST_F(CredMgrRegCredListenerTest, CredMgrRegCredListenerTest001, TestSize.Lev
     int32_t ret = cm->registerChangeListener(TEST_APP_ID, &listener);
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 HWTEST_F(CredMgrRegCredListenerTest, CredMgrRegCredListenerTest002, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -1015,7 +865,6 @@ HWTEST_F(CredMgrRegCredListenerTest, CredMgrRegCredListenerTest002, TestSize.Lev
     ret = cm->registerChangeListener(TEST_APP_ID, &listener);
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 HWTEST_F(CredMgrRegCredListenerTest, CredMgrRegCredListenerTest003, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -1024,7 +873,6 @@ HWTEST_F(CredMgrRegCredListenerTest, CredMgrRegCredListenerTest003, TestSize.Lev
     int32_t ret = cm->registerChangeListener(nullptr, &listener);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrRegCredListenerTest, CredMgrRegCredListenerTest004, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -1032,7 +880,6 @@ HWTEST_F(CredMgrRegCredListenerTest, CredMgrRegCredListenerTest004, TestSize.Lev
     int32_t ret = cm->registerChangeListener(TEST_APP_ID, nullptr);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrRegCredListenerTest, CredMgrRegCredListenerTest005, TestSize.Level0)
 {
     g_credListenerStatus = CRED_LISTENER_INIT;
@@ -1046,7 +893,6 @@ HWTEST_F(CredMgrRegCredListenerTest, CredMgrRegCredListenerTest005, TestSize.Lev
     EXPECT_EQ(ret, IS_SUCCESS);
     EXPECT_EQ(g_credListenerStatus, CRED_LISTENER_ON_ADD);
 }
-
 HWTEST_F(CredMgrRegCredListenerTest, CredMgrRegCredListenerTest006, TestSize.Level0)
 {
     g_credListenerStatus = CRED_LISTENER_INIT;
@@ -1062,7 +908,6 @@ HWTEST_F(CredMgrRegCredListenerTest, CredMgrRegCredListenerTest006, TestSize.Lev
     EXPECT_EQ(ret, IS_SUCCESS);
     EXPECT_EQ(g_credListenerStatus, CRED_LISTENER_ON_UPDATE);
 }
-
 HWTEST_F(CredMgrRegCredListenerTest, CredMgrRegCredListenerTest007, TestSize.Level0)
 {
     g_credListenerStatus = CRED_LISTENER_INIT;
@@ -1078,7 +923,6 @@ HWTEST_F(CredMgrRegCredListenerTest, CredMgrRegCredListenerTest007, TestSize.Lev
     EXPECT_EQ(ret, IS_SUCCESS);
     EXPECT_EQ(g_credListenerStatus, CRED_LISTENER_ON_DELETE);
 }
-
 class CredMgrUnRegCredListenerTest : public testing::Test {
 public:
     static void SetUpTestCase();
@@ -1086,21 +930,17 @@ public:
     void SetUp();
     void TearDown();
 };
-
 void CredMgrUnRegCredListenerTest::SetUpTestCase() {}
 void CredMgrUnRegCredListenerTest::TearDownTestCase() {}
-
 void CredMgrUnRegCredListenerTest::SetUp()
 {
     int ret = InitDeviceAuthService();
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 void CredMgrUnRegCredListenerTest::TearDown()
 {
     DestroyDeviceAuthService();
 }
-
 HWTEST_F(CredMgrUnRegCredListenerTest, CredMgrUnRegCredListenerTest001, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -1111,7 +951,6 @@ HWTEST_F(CredMgrUnRegCredListenerTest, CredMgrUnRegCredListenerTest001, TestSize
     ret = cm->unregisterChangeListener(TEST_APP_ID);
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 HWTEST_F(CredMgrUnRegCredListenerTest, CredMgrUnRegCredListenerTest002, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -1119,7 +958,6 @@ HWTEST_F(CredMgrUnRegCredListenerTest, CredMgrUnRegCredListenerTest002, TestSize
     int32_t ret = cm->unregisterChangeListener(TEST_APP_ID);
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 HWTEST_F(CredMgrUnRegCredListenerTest, CredMgrUnRegCredListenerTest003, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -1127,7 +965,6 @@ HWTEST_F(CredMgrUnRegCredListenerTest, CredMgrUnRegCredListenerTest003, TestSize
     int32_t ret = cm->unregisterChangeListener(nullptr);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 class CredMgrAgreeCredentialTest : public testing::Test {
 public:
     static void SetUpTestCase();
@@ -1135,22 +972,18 @@ public:
     void SetUp();
     void TearDown();
 };
-
 void CredMgrAgreeCredentialTest::SetUpTestCase() {}
 void CredMgrAgreeCredentialTest::TearDownTestCase() {}
-
 void CredMgrAgreeCredentialTest::SetUp()
 {
     DeleteDatabase();
     int ret = InitDeviceAuthService();
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 void CredMgrAgreeCredentialTest::TearDown()
 {
     DestroyDeviceAuthService();
 }
-
 HWTEST_F(CredMgrAgreeCredentialTest, CredMgrAgreeCredentialTest001, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -1164,7 +997,6 @@ HWTEST_F(CredMgrAgreeCredentialTest, CredMgrAgreeCredentialTest001, TestSize.Lev
     HcFree(returnData);
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 HWTEST_F(CredMgrAgreeCredentialTest, CredMgrAgreeCredentialTest002, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -1173,7 +1005,6 @@ HWTEST_F(CredMgrAgreeCredentialTest, CredMgrAgreeCredentialTest002, TestSize.Lev
     int32_t ret = cm->agreeCredential(DEFAULT_OS_ACCOUNT, nullptr, AGREE_PARAMS, &returnData);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrAgreeCredentialTest, CredMgrAgreeCredentialTest003, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -1182,7 +1013,6 @@ HWTEST_F(CredMgrAgreeCredentialTest, CredMgrAgreeCredentialTest003, TestSize.Lev
     int32_t ret = cm->agreeCredential(DEFAULT_OS_ACCOUNT, TEST_CRED_ID, nullptr, &returnData);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrAgreeCredentialTest, CredMgrAgreeCredentialTest004, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -1190,7 +1020,6 @@ HWTEST_F(CredMgrAgreeCredentialTest, CredMgrAgreeCredentialTest004, TestSize.Lev
     int32_t ret = cm->agreeCredential(DEFAULT_OS_ACCOUNT, TEST_CRED_ID, AGREE_PARAMS, nullptr);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 class CredMgrBatchUpdateCredsTest : public testing::Test {
 public:
     static void SetUpTestCase();
@@ -1198,22 +1027,18 @@ public:
     void SetUp();
     void TearDown();
 };
-
 void CredMgrBatchUpdateCredsTest::SetUpTestCase() {}
 void CredMgrBatchUpdateCredsTest::TearDownTestCase() {}
-
 void CredMgrBatchUpdateCredsTest::SetUp()
 {
     DeleteDatabase();
     int ret = InitDeviceAuthService();
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 void CredMgrBatchUpdateCredsTest::TearDown()
 {
     DestroyDeviceAuthService();
 }
-
 HWTEST_F(CredMgrBatchUpdateCredsTest, CredMgrBatchUpdateCredsTest001, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -1223,7 +1048,6 @@ HWTEST_F(CredMgrBatchUpdateCredsTest, CredMgrBatchUpdateCredsTest001, TestSize.L
     HcFree(returnData);
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 HWTEST_F(CredMgrBatchUpdateCredsTest, CredMgrBatchUpdateCredsTest002, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -1232,7 +1056,6 @@ HWTEST_F(CredMgrBatchUpdateCredsTest, CredMgrBatchUpdateCredsTest002, TestSize.L
     int32_t ret = cm->batchUpdateCredentials(DEFAULT_OS_ACCOUNT, nullptr, &returnData);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrBatchUpdateCredsTest, CredMgrBatchUpdateCredsTest003, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -1241,7 +1064,6 @@ HWTEST_F(CredMgrBatchUpdateCredsTest, CredMgrBatchUpdateCredsTest003, TestSize.L
     int32_t ret = cm->batchUpdateCredentials(DEFAULT_OS_ACCOUNT, BATCH_UPDATE_PARAMS1, &returnData);
     EXPECT_EQ(ret, IS_ERR_NOT_SUPPORT);
 }
-
 HWTEST_F(CredMgrBatchUpdateCredsTest, CredMgrBatchUpdateCredsTest004, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -1249,7 +1071,6 @@ HWTEST_F(CredMgrBatchUpdateCredsTest, CredMgrBatchUpdateCredsTest004, TestSize.L
     int32_t ret = cm->batchUpdateCredentials(DEFAULT_OS_ACCOUNT, BATCH_UPDATE_PARAMS, nullptr);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrBatchUpdateCredsTest, CredMgrBatchUpdateCredsTest005, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -1263,7 +1084,6 @@ HWTEST_F(CredMgrBatchUpdateCredsTest, CredMgrBatchUpdateCredsTest005, TestSize.L
     HcFree(returnData);
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 class CredMgrDelCredByParamsTest : public testing::Test {
 public:
     static void SetUpTestCase();
@@ -1271,22 +1091,18 @@ public:
     void SetUp();
     void TearDown();
 };
-
 void CredMgrDelCredByParamsTest::SetUpTestCase() {}
 void CredMgrDelCredByParamsTest::TearDownTestCase() {}
-
 void CredMgrDelCredByParamsTest::SetUp()
 {
     DeleteDatabase();
     int ret = InitDeviceAuthService();
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 void CredMgrDelCredByParamsTest::TearDown()
 {
     DestroyDeviceAuthService();
 }
-
 HWTEST_F(CredMgrDelCredByParamsTest, CredMgrDelCredByParamsTest001, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -1300,7 +1116,6 @@ HWTEST_F(CredMgrDelCredByParamsTest, CredMgrDelCredByParamsTest001, TestSize.Lev
     HcFree(returnData);
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 HWTEST_F(CredMgrDelCredByParamsTest, CredMgrDelCredByParamsTest002, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -1309,7 +1124,6 @@ HWTEST_F(CredMgrDelCredByParamsTest, CredMgrDelCredByParamsTest002, TestSize.Lev
     int32_t ret = cm->deleteCredByParams(DEFAULT_OS_ACCOUNT, nullptr, &returnData);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrDelCredByParamsTest, CredMgrDelCredByParamsTest003, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -1317,7 +1131,6 @@ HWTEST_F(CredMgrDelCredByParamsTest, CredMgrDelCredByParamsTest003, TestSize.Lev
     int32_t ret = cm->deleteCredByParams(DEFAULT_OS_ACCOUNT, DEL_PARAMS, nullptr);
     EXPECT_EQ(ret, IS_ERR_INVALID_PARAMS);
 }
-
 HWTEST_F(CredMgrDelCredByParamsTest, CredMgrDelCredByParamsTest004, TestSize.Level0)
 {
     const CredManager *cm = GetCredMgrInstance();
@@ -1331,7 +1144,6 @@ HWTEST_F(CredMgrDelCredByParamsTest, CredMgrDelCredByParamsTest004, TestSize.Lev
     HcFree(returnData);
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 class CredListenerTest : public testing::Test {
 public:
     static void SetUpTestCase();
@@ -1339,21 +1151,17 @@ public:
     void SetUp();
     void TearDown();
 };
-
 void CredListenerTest::SetUpTestCase() {}
 void CredListenerTest::TearDownTestCase() {}
-
 void CredListenerTest::SetUp()
 {
     int32_t ret = InitCredListener();
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 void CredListenerTest::TearDown()
 {
     DestroyCredListener();
 }
-
 HWTEST_F(CredListenerTest, CredListenerTest001, TestSize.Level0)
 {
     OnCredAdd(nullptr, nullptr);
@@ -1367,13 +1175,11 @@ HWTEST_F(CredListenerTest, CredListenerTest001, TestSize.Level0)
     ret = AddCredListener(TEST_APP_ID, nullptr);
     EXPECT_NE(ret, IS_SUCCESS);
 }
-
 HWTEST_F(CredListenerTest, CredListenerTest002, TestSize.Level0)
 {
     int32_t ret = RemoveCredListener(nullptr);
     EXPECT_NE(ret, IS_SUCCESS);
 }
-
 class IdentityOperationTest : public testing::Test {
 public:
     static void SetUpTestCase();
@@ -1381,24 +1187,19 @@ public:
     void SetUp();
     void TearDown();
 };
-
 void IdentityOperationTest::SetUpTestCase() {}
 void IdentityOperationTest::TearDownTestCase() {}
-
 void IdentityOperationTest::SetUp()
 {
 }
-
 void IdentityOperationTest::TearDown()
 {
 }
-
 HWTEST_F(IdentityOperationTest, IdentityOperationTest001, TestSize.Level0)
 {
     int32_t ret = GetCredentialById(DEFAULT_OS_ACCOUNT_ID, nullptr, nullptr, nullptr);
     EXPECT_NE(ret, IS_SUCCESS);
 }
-
 HWTEST_F(IdentityOperationTest, IdentityOperationTest002, TestSize.Level0)
 {
     char *credIdStr = nullptr;
@@ -1410,7 +1211,6 @@ HWTEST_F(IdentityOperationTest, IdentityOperationTest002, TestSize.Level0)
     ret = GenerateCredIdInner(credOwner, nullptr, credIdByte, &credIdStr);
     EXPECT_NE(ret, IS_SUCCESS);
 }
-
 HWTEST_F(IdentityOperationTest, IdentityOperationTest003, TestSize.Level0)
 {
     Credential *credetial = CreateCredential();
@@ -1418,19 +1218,16 @@ HWTEST_F(IdentityOperationTest, IdentityOperationTest003, TestSize.Level0)
     DestroyCredential(credetial);
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 HWTEST_F(IdentityOperationTest, IdentityOperationTest004, TestSize.Level0)
 {
     int32_t ret = SetMethodFromJson(nullptr, nullptr);
     EXPECT_NE(ret, IS_SUCCESS);
 }
-
 HWTEST_F(IdentityOperationTest, IdentityOperationTest005, TestSize.Level0)
 {
     int32_t ret = SetCredType(nullptr, nullptr);
     EXPECT_NE(ret, IS_SUCCESS);
 }
-
 HWTEST_F(IdentityOperationTest, IdentityOperationTest006, TestSize.Level0)
 {
     int32_t ret = SetKeyFormat(nullptr, nullptr, DEFAULT_VAL);
@@ -1441,12 +1238,10 @@ HWTEST_F(IdentityOperationTest, IdentityOperationTest006, TestSize.Level0)
     EXPECT_EQ(ret, IS_SUCCESS);
     ret = SetKeyFormat(credetial, json, DEFAULT_VAL);
     EXPECT_NE(ret, IS_SUCCESS);
-
     ret = AddIntToJson(json, FIELD_KEY_FORMAT, ASYMMETRIC_PUB_KEY);
     EXPECT_EQ(ret, IS_SUCCESS);
     ret = SetKeyFormat(credetial, json, METHOD_GENERATE);
     EXPECT_NE(ret, IS_SUCCESS);
-
     ret = AddIntToJson(json, FIELD_KEY_FORMAT, ASYMMETRIC_KEY);
     EXPECT_EQ(ret, IS_SUCCESS);
     ret = SetKeyFormat(credetial, json, METHOD_IMPORT);
@@ -1454,25 +1249,21 @@ HWTEST_F(IdentityOperationTest, IdentityOperationTest006, TestSize.Level0)
     DestroyCredential(credetial);
     FreeJson(json);
 }
-
 HWTEST_F(IdentityOperationTest, IdentityOperationTest007, TestSize.Level0)
 {
     int32_t ret = SetAuthorizedScope(nullptr, nullptr);
     EXPECT_NE(ret, IS_SUCCESS);
 }
-
 HWTEST_F(IdentityOperationTest, IdentityOperationTest008, TestSize.Level0)
 {
     int32_t ret = GetCredentialById(DEFAULT_OS_ACCOUNT_ID, nullptr, nullptr, nullptr);
     EXPECT_NE(ret, IS_SUCCESS);
 }
-
 HWTEST_F(IdentityOperationTest, IdentityOperationTest009, TestSize.Level0)
 {
     int32_t ret = CombineBaseCredId(nullptr, nullptr, nullptr);
     EXPECT_NE(ret, IS_SUCCESS);
 }
-
 HWTEST_F(IdentityOperationTest, IdentityOperationTest010, TestSize.Level0)
 {
     int32_t ret = Sha256BaseCredId(nullptr, nullptr, nullptr);
@@ -1486,7 +1277,6 @@ HWTEST_F(IdentityOperationTest, IdentityOperationTest010, TestSize.Level0)
     LoadDataIfNotLoaded(DEFAULT_OS_ACCOUNT_ID);
     OnOsAccountRemoved(DEFAULT_OS_ACCOUNT_ID);
 }
-
 class IdentityServiceImplTest : public testing::Test {
 public:
     static void SetUpTestCase();
@@ -1494,90 +1284,75 @@ public:
     void SetUp();
     void TearDown();
 };
-
 void IdentityServiceImplTest::SetUpTestCase() {}
 void IdentityServiceImplTest::TearDownTestCase() {}
-
 void IdentityServiceImplTest::SetUp()
 {
     DeleteDatabase();
     int ret = InitDeviceAuthService();
     EXPECT_EQ(ret, IS_SUCCESS);
 }
-
 void IdentityServiceImplTest::TearDown()
 {
     DestroyDeviceAuthService();
 }
-
 HWTEST_F(IdentityServiceImplTest, IdentityServiceImplTest001, TestSize.Level0)
 {
     int32_t ret = AddCredentialImpl(DEFAULT_OS_ACCOUNT_ID, nullptr, nullptr);
     EXPECT_NE(ret, IS_SUCCESS);
 }
-
 HWTEST_F(IdentityServiceImplTest, IdentityServiceImplTest002, TestSize.Level0)
 {
     int32_t ret = ExportCredentialImpl(DEFAULT_OS_ACCOUNT_ID, nullptr, nullptr);
     EXPECT_NE(ret, IS_SUCCESS);
 }
-
 HWTEST_F(IdentityServiceImplTest, IdentityServiceImplTest003, TestSize.Level0)
 {
     int32_t ret = QueryCredentialByParamsImpl(DEFAULT_OS_ACCOUNT_ID, nullptr, nullptr);
     EXPECT_NE(ret, IS_SUCCESS);
 }
-
 HWTEST_F(IdentityServiceImplTest, IdentityServiceImplTest004, TestSize.Level0)
 {
     int32_t ret = QueryCredInfoByCredIdImpl(DEFAULT_OS_ACCOUNT_ID, DEFAULT_VAL, nullptr, nullptr);
     EXPECT_NE(ret, IS_SUCCESS);
 }
-
 HWTEST_F(IdentityServiceImplTest, IdentityServiceImplTest005, TestSize.Level0)
 {
     int32_t ret = DeleteCredentialImpl(DEFAULT_OS_ACCOUNT_ID, nullptr, nullptr);
     EXPECT_NE(ret, IS_SUCCESS);
 }
-
 HWTEST_F(IdentityServiceImplTest, IdentityServiceImplTest006, TestSize.Level0)
 {
     int32_t ret = DeleteCredByParamsImpl(DEFAULT_OS_ACCOUNT_ID, nullptr, nullptr);
     EXPECT_NE(ret, IS_SUCCESS);
 }
-
 HWTEST_F(IdentityServiceImplTest, IdentityServiceImplTest007, TestSize.Level0)
 {
     int32_t ret = UpdateCredInfoImpl(DEFAULT_OS_ACCOUNT_ID, nullptr, nullptr);
     EXPECT_NE(ret, IS_SUCCESS);
 }
-
 HWTEST_F(IdentityServiceImplTest, IdentityServiceImplTest008, TestSize.Level0)
 {
     QueryCredentialParams queryParam;
     int32_t ret = AddUpdateCred(DEFAULT_OS_ACCOUNT_ID, nullptr, &queryParam);
     EXPECT_NE(ret, IS_SUCCESS);
 }
-
 HWTEST_F(IdentityServiceImplTest, IdentityServiceImplTest009, TestSize.Level0)
 {
     QueryCredentialParams queryParam;
     int32_t ret = ProcessAbnormalCreds(DEFAULT_OS_ACCOUNT_ID, nullptr, &queryParam);
     EXPECT_NE(ret, IS_SUCCESS);
 }
-
 HWTEST_F(IdentityServiceImplTest, IdentityServiceImplTest010, TestSize.Level0)
 {
     int32_t ret = BatchUpdateCredsImpl(DEFAULT_OS_ACCOUNT_ID, nullptr, nullptr);
     EXPECT_NE(ret, IS_SUCCESS);
 }
-
 HWTEST_F(IdentityServiceImplTest, IdentityServiceImplTest011, TestSize.Level0)
 {
     int32_t ret = AgreeCredentialImpl(DEFAULT_OS_ACCOUNT_ID, nullptr, nullptr, nullptr);
     EXPECT_NE(ret, IS_SUCCESS);
 }
-
 class SessionV1Test : public testing::Test {
 public:
     static void SetUpTestCase();
@@ -1585,54 +1360,44 @@ public:
     void SetUp();
     void TearDown();
 };
-
 void SessionV1Test::SetUpTestCase() {}
 void SessionV1Test::TearDownTestCase() {}
-
 void SessionV1Test::SetUp()
 {
 }
-
 void SessionV1Test::TearDown()
 {
 }
-
 HWTEST_F(SessionV1Test, SessionV1Test001, TestSize.Level0)
 {
     int32_t ret = CheckPermission(DEFAULT_VAL);
     EXPECT_NE(ret, IS_SUCCESS);
 }
-
 HWTEST_F(SessionV1Test, SessionV1Test002, TestSize.Level0)
 {
     SubSessionTypeValue subSessionType = TYPE_CLIENT_BIND_SUB_SESSION;
     int32_t ret = CreateCompatibleSubSession(subSessionType, nullptr, nullptr, nullptr);
     EXPECT_EQ(ret, HC_ERR_INVALID_PARAMS);
-
     CJson *json = CreateJson();
     ASSERT_NE(json, nullptr);
     DeviceAuthCallback *callback;
     CompatibleBaseSubSession *subSession;
-
     ret = CreateCompatibleSubSession(subSessionType, json, nullptr, nullptr);
     EXPECT_EQ(ret, HC_ERR_INVALID_PARAMS);
     ret = CreateCompatibleSubSession(subSessionType, nullptr, callback, nullptr);
     EXPECT_EQ(ret, HC_ERR_INVALID_PARAMS);
     ret = CreateCompatibleSubSession(subSessionType, nullptr, nullptr, &subSession);
     EXPECT_EQ(ret, HC_ERR_INVALID_PARAMS);
-
     ret = CreateCompatibleSubSession(subSessionType, json, callback, nullptr);
     EXPECT_EQ(ret, HC_ERR_INVALID_PARAMS);
     ret = CreateCompatibleSubSession(subSessionType, json, nullptr, &subSession);
     EXPECT_EQ(ret, HC_ERR_INVALID_PARAMS);
     ret = CreateCompatibleSubSession(subSessionType, nullptr, callback, &subSession);
     EXPECT_EQ(ret, HC_ERR_INVALID_PARAMS);
-
     ret = CreateCompatibleSubSession(subSessionType, json, callback, &subSession);
     FreeJson(json);
     EXPECT_NE(ret, HC_SUCCESS);
 }
-
 HWTEST_F(SessionV1Test, SessionV1Test003, TestSize.Level0)
 {
     int32_t ret = ProcessCompatibleSubSession(nullptr, nullptr, nullptr, nullptr);
@@ -1645,7 +1410,6 @@ HWTEST_F(SessionV1Test, SessionV1Test003, TestSize.Level0)
     CJson *out = CreateJson();
     ASSERT_NE(out, nullptr);
     int32_t *status = DEFAULT_VAL;
-
     ret = ProcessCompatibleSubSession(&subSession, nullptr, nullptr, nullptr);
     EXPECT_EQ(ret, HC_ERR_INVALID_PARAMS);
     ret = ProcessCompatibleSubSession(&subSession, in, nullptr, nullptr);
@@ -1655,11 +1419,9 @@ HWTEST_F(SessionV1Test, SessionV1Test003, TestSize.Level0)
     ret = ProcessCompatibleSubSession(&subSession, in, &out, status);
     DestroyCompatibleSubSession(&subSession);
     EXPECT_NE(ret, HC_SUCCESS);
-
     FreeJson(in);
     FreeJson(out);
 }
-
 class CredSessionUtilTest : public testing::Test {
 public:
     static void SetUpTestCase();
@@ -1667,14 +1429,10 @@ public:
     void SetUp();
     void TearDown();
 };
-
 void CredSessionUtilTest::SetUpTestCase() {}
 void CredSessionUtilTest::TearDownTestCase() {}
-
 void CredSessionUtilTest::SetUp() {}
-
 void CredSessionUtilTest::TearDown() {}
-
 HWTEST_F(CredSessionUtilTest, CredSessionUtilTest001, TestSize.Level0)
 {
     int32_t ret = AddChannelInfoToContext(DEFAULT_CHANNEL_TYPE, DEFAULT_CHANNEL_ID, nullptr);
@@ -1684,7 +1442,6 @@ HWTEST_F(CredSessionUtilTest, CredSessionUtilTest001, TestSize.Level0)
     EXPECT_EQ(ret, IS_SUCCESS);
     FreeJson(in);
 }
-
 HWTEST_F(CredSessionUtilTest, CredSessionUtilTest002, TestSize.Level0)
 {
     int32_t ret = AddCredIdToContextIfNeeded(nullptr);
@@ -1695,7 +1452,6 @@ HWTEST_F(CredSessionUtilTest, CredSessionUtilTest002, TestSize.Level0)
     FreeJson(credDataJson);
     ret = AddCredIdToContextIfNeeded(in);
     EXPECT_NE(ret, IS_SUCCESS);
-
     credDataJson = CreateJsonFromString(CRED_DATA_1);
     (void)AddObjToJson(in, FIELD_CREDENTIAL_OBJ, credDataJson);
     FreeJson(credDataJson);
@@ -1703,7 +1459,6 @@ HWTEST_F(CredSessionUtilTest, CredSessionUtilTest002, TestSize.Level0)
     EXPECT_EQ(ret, IS_SUCCESS);
     FreeJson(in);
 }
-
 HWTEST_F(CredSessionUtilTest, CredSessionUtilTest003, TestSize.Level0)
 {
     int32_t ret = CheckConfirmationExist(nullptr);
@@ -1717,7 +1472,6 @@ HWTEST_F(CredSessionUtilTest, CredSessionUtilTest003, TestSize.Level0)
     EXPECT_EQ(ret, IS_SUCCESS);
     FreeJson(in);
 }
-
 HWTEST_F(CredSessionUtilTest, CredSessionUtilTest004, TestSize.Level0)
 {
     const char *ret = GetAppIdByContext(nullptr);
@@ -1728,13 +1482,11 @@ HWTEST_F(CredSessionUtilTest, CredSessionUtilTest004, TestSize.Level0)
     FreeJson(credDataJson);
     ret = GetAppIdByContext(in);
     EXPECT_EQ(ret, nullptr);
-
     credDataJson = CreateJsonFromString(CRED_DATA_1);
     (void)AddObjToJson(in, FIELD_CREDENTIAL_OBJ, credDataJson);
     FreeJson(credDataJson);
     ret = GetAppIdByContext(in);
     EXPECT_NE(ret, nullptr);
-
     (void)AddStringToJson(in, FIELD_PIN_CODE, TEST_PIN_CODE);
     ret = GetAppIdByContext(in);
     EXPECT_EQ(ret, nullptr);
@@ -1743,7 +1495,6 @@ HWTEST_F(CredSessionUtilTest, CredSessionUtilTest004, TestSize.Level0)
     EXPECT_NE(ret, nullptr);
     FreeJson(in);
 }
-
 HWTEST_F(CredSessionUtilTest, CredSessionUtilTest005, TestSize.Level0)
 {
     int32_t ret = AddUserIdHashHexStringToContext(nullptr, nullptr);
@@ -1755,13 +1506,11 @@ HWTEST_F(CredSessionUtilTest, CredSessionUtilTest005, TestSize.Level0)
     (void)AddIntToJson(in, FIELD_CRED_TYPE, TEST_CRED_TYPE);
     ret = AddUserIdHashHexStringToContext(nullptr, in);
     EXPECT_NE(ret, IS_SUCCESS);
-
     (void)AddStringToJson(in, FIELD_USER_ID, TEST_USER_ID);
     ret = AddUserIdHashHexStringToContext(nullptr, in);
     EXPECT_NE(ret, IS_SUCCESS);
     FreeJson(in);
 }
-
 HWTEST_F(CredSessionUtilTest, CredSessionUtilTest006, TestSize.Level0)
 {
     int32_t ret = QueryAndAddSelfCredToContext(DEFAULT_OS_ACCOUNT_ID, nullptr);
@@ -1772,7 +1521,6 @@ HWTEST_F(CredSessionUtilTest, CredSessionUtilTest006, TestSize.Level0)
     EXPECT_NE(ret, IS_SUCCESS);
     FreeJson(in);
 }
-
 HWTEST_F(CredSessionUtilTest, CredSessionUtilTest007, TestSize.Level0)
 {
     bool ret = CheckIsCredBind(nullptr);
@@ -1781,13 +1529,11 @@ HWTEST_F(CredSessionUtilTest, CredSessionUtilTest007, TestSize.Level0)
     (void)AddStringToJson(in, FIELD_PIN_CODE, TEST_PIN_CODE_1);
     ret = CheckIsCredBind(in);
     EXPECT_NE(ret, true);
-
     (void)AddStringToJson(in, FIELD_PIN_CODE, TEST_PIN_CODE);
     ret = CheckIsCredBind(in);
     EXPECT_EQ(ret, true);
     FreeJson(in);
 }
-
 HWTEST_F(CredSessionUtilTest, CredSessionUtilTest008, TestSize.Level0)
 {
     int32_t ret = AddAuthIdToCredContext(nullptr);
@@ -1797,7 +1543,6 @@ HWTEST_F(CredSessionUtilTest, CredSessionUtilTest008, TestSize.Level0)
     EXPECT_EQ(ret, IS_SUCCESS);
     FreeJson(in);
 }
-
 HWTEST_F(CredSessionUtilTest, CredSessionUtilTest009, TestSize.Level0)
 {
     int32_t ret = BuildClientCredBindContext(DEFAULT_OS_ACCOUNT_ID, DEFAULT_REQUEST_ID, nullptr, nullptr);
@@ -1809,7 +1554,6 @@ HWTEST_F(CredSessionUtilTest, CredSessionUtilTest009, TestSize.Level0)
     EXPECT_NE(ret, IS_SUCCESS);
     FreeJson(in);
 }
-
 HWTEST_F(CredSessionUtilTest, CredSessionUtilTest010, TestSize.Level0)
 {
     int32_t ret = SetContextOpCode(nullptr);
@@ -1829,13 +1573,11 @@ HWTEST_F(CredSessionUtilTest, CredSessionUtilTest010, TestSize.Level0)
     EXPECT_NE(ret, IS_SUCCESS);
     FreeJson(in);
 }
-
 HWTEST_F(CredSessionUtilTest, CredSessionUtilTest011, TestSize.Level0)
 {
     int32_t ret = BuildClientCredAuthContext(DEFAULT_OS_ACCOUNT_ID, DEFAULT_REQUEST_ID, nullptr, nullptr);
     EXPECT_NE(ret, IS_SUCCESS);
 }
-
 HWTEST_F(CredSessionUtilTest, CredSessionUtilTest012, TestSize.Level0)
 {
     int32_t ret = BuildClientCredContext(DEFAULT_OS_ACCOUNT_ID, DEFAULT_REQUEST_ID,
@@ -1854,7 +1596,6 @@ HWTEST_F(CredSessionUtilTest, CredSessionUtilTest012, TestSize.Level0)
     EXPECT_NE(ret, IS_SUCCESS);
     FreeJson(in);
 }
-
 static bool OnTransmit(int64_t requestId, const uint8_t *data, uint32_t dataLen)
 {
     (void)requestId;
@@ -1865,7 +1606,6 @@ static bool OnTransmit(int64_t requestId, const uint8_t *data, uint32_t dataLen)
     g_asyncStatus = ASYNC_STATUS_TRANSMIT;
     return true;
 }
-
 static void OnSessionKeyReturned(int64_t requestId, const uint8_t *sessionKey, uint32_t sessionKeyLen)
 {
     (void)requestId;
@@ -1873,7 +1613,6 @@ static void OnSessionKeyReturned(int64_t requestId, const uint8_t *sessionKey, u
     (void)sessionKeyLen;
     return;
 }
-
 static void OnFinish(int64_t requestId, int operationCode, const char *authReturn)
 {
     (void)requestId;
@@ -1881,7 +1620,6 @@ static void OnFinish(int64_t requestId, int operationCode, const char *authRetur
     (void)authReturn;
     g_asyncStatus = ASYNC_STATUS_FINISH;
 }
-
 static void OnError(int64_t requestId, int operationCode, int errorCode, const char *errorReturn)
 {
     (void)requestId;
@@ -1890,7 +1628,6 @@ static void OnError(int64_t requestId, int operationCode, int errorCode, const c
     (void)errorReturn;
     g_asyncStatus = ASYNC_STATUS_ERROR;
 }
-
 static char *OnAuthRequest(int64_t requestId, int operationCode, const char* reqParam)
 {
     (void)requestId;
@@ -1909,7 +1646,6 @@ static char *OnAuthRequest(int64_t requestId, int operationCode, const char* req
     FreeJson(json);
     return returnDataStr;
 }
-
 static DeviceAuthCallback g_caCallback = {
     .onTransmit = OnTransmit,
     .onSessionKeyReturned = OnSessionKeyReturned,
@@ -1917,7 +1653,6 @@ static DeviceAuthCallback g_caCallback = {
     .onError = OnError,
     .onRequest = OnAuthRequest
 };
-
 static const char *GenerateBindParams()
 {
     CJson *json = CreateJson();
@@ -1928,7 +1663,6 @@ static const char *GenerateBindParams()
     FreeJson(json);
     return returnDataStr;
 }
-
 static const char *GenerateAuthParams()
 {
     CJson *json = CreateJson();
@@ -1938,7 +1672,6 @@ static const char *GenerateAuthParams()
     FreeJson(json);
     return returnDataStr;
 }
-
 static void AuthCredDemo(void)
 {
     g_asyncStatus = ASYNC_STATUS_WAITING;
@@ -1984,7 +1717,6 @@ static void AuthCredDemo(void)
     }
     SetDeviceStatus(true);
 }
-
 class CredAuthTest : public testing::Test {
 public:
     static void SetUpTestCase();
@@ -1992,22 +1724,18 @@ public:
     void SetUp();
     void TearDown();
 };
-
 void CredAuthTest::SetUpTestCase() {}
 void CredAuthTest::TearDownTestCase() {}
-
 void CredAuthTest::SetUp()
 {
     DeleteDatabase();
     int32_t ret = InitDeviceAuthService();
     EXPECT_EQ(ret, HC_SUCCESS);
 }
-
 void CredAuthTest::TearDown()
 {
     DestroyDeviceAuthService();
 }
-
 HWTEST_F(CredAuthTest, CredAuthTest001, TestSize.Level0)
 {
     const CredAuthManager *ca = GetCredAuthInstance();
@@ -2031,7 +1759,6 @@ HWTEST_F(CredAuthTest, CredAuthTest001, TestSize.Level0)
     cm->destroyInfo(&clientReturnData);
     cm->destroyInfo(&serverReturnData);
 }
-
 HWTEST_F(CredAuthTest, CredAuthTest002, TestSize.Level0)
 {
     const CredAuthManager *ca = GetCredAuthInstance();
@@ -2043,8 +1770,6 @@ HWTEST_F(CredAuthTest, CredAuthTest002, TestSize.Level0)
     ca->processCredData(TEST_REQ_ID, nullptr, DATA_LEN, &g_caCallback);
     ca->processCredData(TEST_REQ_ID, (const uint8_t*)GenerateBindParams(), DATA_LEN, nullptr);
 }
-
-// ---- Mock AlgLoader by replacing GetLoaderInstance (alg_loader.c excluded from link) ----
 #include "huks_adapter.h"
 static AlgLoader g_mockLoader;
 static bool g_mockInited = false;
@@ -2054,46 +1779,31 @@ static int32_t g_mockEncRet = HAL_SUCCESS;
 static int32_t g_mockDecRet = HAL_SUCCESS;
 static volatile bool g_mockKeyExistEnabled = false;
 static int32_t g_mockKeyExistRet = HAL_SUCCESS;
-
 static int32_t MockGenKey(const KeyParams *kp, uint32_t keyLen, KeyPurpose purpose)
 {
-    if (g_mockGenKeyRet != HAL_SUCCESS) {
-        return g_mockGenKeyRet;
-    }
+    if (g_mockGenKeyRet != HAL_SUCCESS) { return g_mockGenKeyRet; }
     return GetRealLoaderInstance()->generateAesGcmKeyWithStorage(kp, keyLen, purpose);
 }
-
-static int32_t MockEncrypt(const KeyParams *kp, const Uint8Buff *plain,
-    const GcmParam *enc, Uint8Buff *cipher)
+static int32_t MockEncrypt(const KeyParams *kp, const Uint8Buff *plain, const GcmParam *enc, Uint8Buff *cipher)
 {
-    if (g_mockEncRet != HAL_SUCCESS) {
-        return g_mockEncRet;
-    }
+    if (g_mockEncRet != HAL_SUCCESS) { return g_mockEncRet; }
     return GetRealLoaderInstance()->aesGcmEncrypt(kp, plain, enc, cipher);
 }
-
-static int32_t MockDecrypt(const KeyParams *kp, const Uint8Buff *cipher,
-    const GcmParam *dec, Uint8Buff *plain)
+static int32_t MockDecrypt(const KeyParams *kp, const Uint8Buff *cipher, const GcmParam *dec, Uint8Buff *plain)
 {
-    if (g_mockDecRet != HAL_SUCCESS) {
-        return g_mockDecRet;
-    }
+    if (g_mockDecRet != HAL_SUCCESS) { return g_mockDecRet; }
     return GetRealLoaderInstance()->aesGcmDecrypt(kp, cipher, dec, plain);
 }
-
 static int32_t MockCheckKeyExist(const Uint8Buff *alias, bool isDe, int32_t osAccount)
 {
-    if (g_mockKeyExistEnabled) {
-        return g_mockKeyExistRet;
-    }
+    if (g_mockKeyExistEnabled) { return g_mockKeyExistRet; }
     return GetRealLoaderInstance()->checkKeyExist(alias, isDe, osAccount);
 }
-
 static void EnableMockLoader()
 {
     if (!g_mockInited) {
         const AlgLoader *real = GetRealLoaderInstance();
-        memcpy(&g_mockLoader, const_cast<AlgLoader *>(real), sizeof(AlgLoader));
+        (void)memcpy_s(&g_mockLoader, sizeof(g_mockLoader), const_cast<AlgLoader *>(real), sizeof(AlgLoader));
         g_mockLoader.generateAesGcmKeyWithStorage = MockGenKey;
         g_mockLoader.aesGcmEncrypt = MockEncrypt;
         g_mockLoader.aesGcmDecrypt = MockDecrypt;
@@ -2102,7 +1812,6 @@ static void EnableMockLoader()
     }
     g_useMock = true;
 }
-
 static void DisableMockLoader()
 {
     g_useMock = false;
@@ -2112,15 +1821,11 @@ static void DisableMockLoader()
     g_mockKeyExistEnabled = false;
     g_mockKeyExistRet = HAL_SUCCESS;
 }
-
 extern "C" __attribute__((noinline, used)) const AlgLoader *GetLoaderInstance_TestOverride(void)
 {
-    if (g_useMock) {
-        return &g_mockLoader;
-    }
+    if (g_useMock) { return &g_mockLoader; }
     return GetRealLoaderInstance();
 }
-
 class CredFileEncryptionTest : public testing::Test {
 public:
     static void SetUpTestCase() {}
@@ -2128,7 +1833,6 @@ public:
     void SetUp();
     void TearDown();
 };
-
 void CredFileEncryptionTest::SetUp()
 {
     DeleteDatabase();
@@ -2136,14 +1840,12 @@ void CredFileEncryptionTest::SetUp()
     EXPECT_EQ(ret, IS_SUCCESS);
     DeleteCredFileEncKey(DEFAULT_OS_ACCOUNT);
 }
-
 void CredFileEncryptionTest::TearDown()
 {
     DestroyDeviceAuthService();
     DeleteDatabase();
     DeleteCredFileEncKey(DEFAULT_OS_ACCOUNT);
 }
-
 HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest001, TestSize.Level0)
 {
     EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
@@ -2151,8 +1853,7 @@ HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest001, TestSize.Level0)
     uint32_t plainLen = HcStrlen(plain);
     uint8_t *enc = nullptr;
     uint32_t encLen = 0;
-    EXPECT_EQ(EncryptCredFileData(reinterpret_cast<const uint8_t *>(plain), plainLen,
-        DEFAULT_OS_ACCOUNT, &enc, &encLen), IS_SUCCESS);
+    EXPECT_EQ(EncryptCredFileData(reinterpret_cast<const uint8_t *>(plain), plainLen, DEFAULT_OS_ACCOUNT, &enc, &encLen), IS_SUCCESS);
     ASSERT_NE(enc, nullptr);
     EXPECT_GT(encLen, CRED_FILE_ENC_NONCE_LEN + AE_TAG_LEN);
     HcParcel parcel = CreateParcel(0, 0);
@@ -2162,22 +1863,17 @@ HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest001, TestSize.Level0)
     DeleteParcel(&parcel);
     HcFree(enc);
 }
-
 HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest002, TestSize.Level0)
 {
-    // rollback resistance: with key present, decrypting forged plaintext must FAIL (GCM tag mismatch)
     EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
     const char *forged = "forged plaintext tlv that is not valid ciphertext";
     uint32_t forgedLen = HcStrlen(forged);
     HcParcel parcel = CreateParcel(0, 0);
-    EXPECT_NE(DecryptCredFileToParcel(reinterpret_cast<const uint8_t *>(forged), forgedLen,
-        DEFAULT_OS_ACCOUNT, &parcel), IS_SUCCESS);
+    EXPECT_NE(DecryptCredFileToParcel(reinterpret_cast<const uint8_t *>(forged), forgedLen, DEFAULT_OS_ACCOUNT, &parcel), IS_SUCCESS);
     DeleteParcel(&parcel);
 }
-
 HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest003, TestSize.Level0)
 {
-    // init-only upgrade: save plaintext (no key) -> re-init -> load upgrades legacy -> key created
     EXPECT_FALSE(CredFileEncKeyExist(DEFAULT_OS_ACCOUNT));
     EXPECT_EQ(SaveOsAccountCredDb(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
     EXPECT_FALSE(CredFileEncKeyExist(DEFAULT_OS_ACCOUNT));
@@ -2186,10 +1882,8 @@ HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest003, TestSize.Level0)
     EXPECT_TRUE(CredFileEncKeyExist(DEFAULT_OS_ACCOUNT));
     EXPECT_TRUE(IsOsAccountCredDataLoaded(DEFAULT_OS_ACCOUNT));
 }
-
 HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest004, TestSize.Level0)
 {
-    // save modes: no key -> plaintext; ensure key -> encrypted; reload -> decrypt ok
     EXPECT_EQ(SaveOsAccountCredDb(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
     EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
     EXPECT_EQ(SaveOsAccountCredDb(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
@@ -2197,27 +1891,20 @@ HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest004, TestSize.Level0)
     EXPECT_EQ(InitDeviceAuthService(), IS_SUCCESS);
     EXPECT_TRUE(IsOsAccountCredDataLoaded(DEFAULT_OS_ACCOUNT));
 }
-
 HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest005, TestSize.Level0)
 {
-    EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
-    EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
+    EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);; EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
     EXPECT_TRUE(CredFileEncKeyExist(DEFAULT_OS_ACCOUNT));
 }
-
 HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest006, TestSize.Level0)
 {
-    // decrypt with file too short (< NONCE+TAG=28B) → expect failure
     uint8_t shortBuf[10] = {0};
     HcParcel parcel = CreateParcel(0, 0);
-    EXPECT_NE(DecryptCredFileToParcel(shortBuf, sizeof(shortBuf),
-        DEFAULT_OS_ACCOUNT, &parcel), IS_SUCCESS);
+    EXPECT_NE(DecryptCredFileToParcel(shortBuf, sizeof(shortBuf), DEFAULT_OS_ACCOUNT, &parcel), IS_SUCCESS);
     DeleteParcel(&parcel);
 }
-
 HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest007, TestSize.Level0)
 {
-    // fresh: no file, no key → ensure key → save encrypted (no upgrade needed)
     DeleteDatabase();
     DeleteCredFileEncKey(DEFAULT_OS_ACCOUNT);
     EXPECT_FALSE(CredFileEncKeyExist(DEFAULT_OS_ACCOUNT));
@@ -2225,29 +1912,23 @@ HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest007, TestSize.Level0)
     EXPECT_EQ(SaveOsAccountCredDb(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
     EXPECT_TRUE(CredFileEncKeyExist(DEFAULT_OS_ACCOUNT));
 }
-
 HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest008, TestSize.Level0)
 {
-    // delete key: create → verify exists → delete → verify gone
     EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
     EXPECT_TRUE(CredFileEncKeyExist(DEFAULT_OS_ACCOUNT));
     DeleteCredFileEncKey(DEFAULT_OS_ACCOUNT);
     EXPECT_FALSE(CredFileEncKeyExist(DEFAULT_OS_ACCOUNT));
 }
-
 HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest009, TestSize.Level0)
 {
-    // mock HUKS genKey fail → EnsureCredFileEncKeyExist fails
     DeleteCredFileEncKey(DEFAULT_OS_ACCOUNT);
     EnableMockLoader();
     g_mockGenKeyRet = HAL_ERR_HUKS;
     EXPECT_NE(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
     DisableMockLoader();
 }
-
 HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest010, TestSize.Level0)
 {
-    // mock checkKeyExist returns error (not NOT_EXIST) → EnsureCredFileEncKeyExist fails
     DeleteCredFileEncKey(DEFAULT_OS_ACCOUNT);
     EnableMockLoader();
     g_mockKeyExistEnabled = true;
@@ -2255,32 +1936,24 @@ HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest010, TestSize.Level0)
     EXPECT_NE(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
     DisableMockLoader();
 }
-
 HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest011, TestSize.Level0)
 {
-    // mock aesGcmEncrypt fail → EncryptCredFileData fails
     EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
     EnableMockLoader();
     g_mockEncRet = HAL_ERR_HUKS;
     uint8_t *enc = nullptr;
     uint32_t encLen = 0;
-    EXPECT_NE(EncryptCredFileData(reinterpret_cast<const uint8_t *>("test"), 4,
-        DEFAULT_OS_ACCOUNT, &enc, &encLen), IS_SUCCESS);
+    EXPECT_NE(EncryptCredFileData(reinterpret_cast<const uint8_t *>("test"), 4, DEFAULT_OS_ACCOUNT, &enc, &encLen), IS_SUCCESS);
     DisableMockLoader();
 }
-
 HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest012, TestSize.Level0)
 {
-    // mock generateRandom fail (nonce) → EncryptCredFileData fails
-    // generateRandom is NOT on the mock loader (it's a different vtable slot);
-    // instead, mock aesGcmDecrypt fail → DecryptCredFileToParcel fails
     EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
     const char *plain = "data for decrypt fail test";
     uint32_t plainLen = HcStrlen(plain);
     uint8_t *enc = nullptr;
     uint32_t encLen = 0;
-    EXPECT_EQ(EncryptCredFileData(reinterpret_cast<const uint8_t *>(plain), plainLen,
-        DEFAULT_OS_ACCOUNT, &enc, &encLen), IS_SUCCESS);
+    EXPECT_EQ(EncryptCredFileData(reinterpret_cast<const uint8_t *>(plain), plainLen, DEFAULT_OS_ACCOUNT, &enc, &encLen), IS_SUCCESS);
     ASSERT_NE(enc, nullptr);
     EnableMockLoader();
     g_mockDecRet = HAL_ERR_HUKS;
@@ -2290,18 +1963,11 @@ HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest012, TestSize.Level0)
     DisableMockLoader();
     HcFree(enc);
 }
-
 HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest013, TestSize.Level0)
 {
-    // BuildCredFileEncKeyAlias with bufLen=0 → fail
     uint8_t buf[1];
     uint32_t len = 0;
     EXPECT_NE(BuildCredFileEncKeyAlias(DEFAULT_OS_ACCOUNT, buf, 0, &len), IS_SUCCESS);
-}
-
-HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest014, TestSize.Level0)
-{
-    // ReadCredFileToParcel with nonexistent path → ReadFileRaw fails
     HcParcel parcel = CreateParcel(0, 0);
     EXPECT_FALSE(ReadCredFileToParcel("/nonexistent/cred.dat", DEFAULT_OS_ACCOUNT, &parcel));
     DeleteParcel(&parcel);
