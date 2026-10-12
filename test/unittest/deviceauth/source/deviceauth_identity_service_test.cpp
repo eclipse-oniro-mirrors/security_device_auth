@@ -6,11 +6,11 @@
 #include "device_auth_defines.h"
 #include "json_utils.h"
 #include "huks_adapter.h"
+#define GetLoaderInstance GetLoaderInstance_TestOverride  // NOLINT
+extern "C" const AlgLoader *GetLoaderInstance_TestOverride(void);
 #include "base/security/device_auth/services/identity_service/src/identity_operation.c"
 #include "base/security/device_auth/services/identity_service/src/identity_service_impl.c"
 #include "base/security/device_auth/services/identity_service/session/src/cred_session_util.c"
-#define GetLoaderInstance GetLoaderInstance_TestOverride  // NOLINT
-extern "C" const AlgLoader *GetLoaderInstance_TestOverride(void);
 #include "base/security/device_auth/services/data_manager/cred_data_manager/src/credential_data_manager.c"
 #undef GetLoaderInstance
 #include "compatible_sub_session.h"
