@@ -390,7 +390,7 @@ static bool CredFileEncKeyExist(int32_t osAccountId)
     }
     Uint8Buff keyAlias = { aliasVal, aliasLen };
     bool ret = (GetLoaderInstance()->checkKeyExist(&keyAlias, false, osAccountId) == HAL_SUCCESS);
-    (void)memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal));
+    if (memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal)) != EOK) { LOGE("memset_s failed!"); }
     return ret;
 }
 
@@ -405,12 +405,12 @@ static int32_t EnsureCredFileEncKeyExist(int32_t osAccountId)
     Uint8Buff keyAlias = { aliasVal, aliasLen };
     int32_t ret = GetLoaderInstance()->checkKeyExist(&keyAlias, false, osAccountId);
     if (ret == HAL_SUCCESS) {
-        (void)memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal));
+        if (memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal)) != EOK) { LOGE("memset_s failed!"); }
         return IS_SUCCESS;
     }
     if (ret != HAL_ERR_KEY_NOT_EXIST) {
         LOGE("[CRED#DB]: check cred file enc key failed, res: %" LOG_PUB "d", ret);
-        (void)memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal));
+        if (memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal)) != EOK) { LOGE("memset_s failed!"); }
         DEV_AUTH_REPORT_FAULT_EVENT_WITH_ERR_CODE(CRED_FILE_KEY_GEN_EVENT,
             PROCESS_CRED_FILE_KEY_GEN, IS_ERR_HUKS_CHECK_KEY_EXIST_FAILED);
         return IS_ERR_INIT_FAILED;
@@ -418,7 +418,7 @@ static int32_t EnsureCredFileEncKeyExist(int32_t osAccountId)
     KeyParams keyParams = { { aliasVal, aliasLen, true }, false, osAccountId };
     ret = GetLoaderInstance()->generateAesGcmKeyWithStorage(&keyParams, CRED_FILE_ENC_KEY_LEN,
         KEY_PURPOSE_KEY_ENCRYPT);
-    (void)memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal));
+    if (memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal)) != EOK) { LOGE("memset_s failed!"); }
     if (ret != HAL_SUCCESS) {
         LOGE("[CRED#DB]: generate cred file enc key failed, res: %" LOG_PUB "d", ret);
         DEV_AUTH_REPORT_FAULT_EVENT_WITH_ERR_CODE(CRED_FILE_KEY_GEN_EVENT,
@@ -439,7 +439,7 @@ static void DeleteCredFileEncKey(int32_t osAccountId)
     }
     Uint8Buff keyAlias = { aliasVal, aliasLen };
     int32_t ret = GetLoaderInstance()->deleteKey(&keyAlias, false, osAccountId);
-    (void)memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal));
+    if (memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal)) != EOK) { LOGE("memset_s failed!"); }
     if (ret != HAL_SUCCESS) {
         LOGE("[CRED#DB]: delete cred file enc key failed, res: %" LOG_PUB "d", ret);
         DEV_AUTH_REPORT_FAULT_EVENT_WITH_ERR_CODE(CRED_FILE_KEY_DEL_EVENT,
@@ -462,8 +462,8 @@ static int32_t GenerateEncNonce(uint8_t *nonce, uint32_t nonceLen)
 static void CleanEncSensitiveData(uint8_t *aliasVal, uint32_t aliasSize,
     uint8_t *nonce, uint32_t nonceSize)
 {
-    (void)memset_s(aliasVal, aliasSize, 0, aliasSize);
-    (void)memset_s(nonce, nonceSize, 0, nonceSize);
+    if (memset_s(aliasVal, aliasSize, 0, aliasSize) != EOK) { LOGE("memset_s failed!"); }
+    if (memset_s(nonce, nonceSize, 0, nonceSize) != EOK) { LOGE("memset_s failed!"); }
 }
 
 static int32_t DoAesGcmEncrypt(const uint8_t *plain, uint32_t plainLen, int32_t osAccountId,
@@ -546,7 +546,7 @@ static int32_t DecryptCredFileToParcel(const uint8_t *fileData, uint32_t fileLen
     uint8_t *plain = (uint8_t *)HcMalloc(plainLen, 0);
     if (plain == NULL) {
         LOGE("[CRED#DB]: alloc plain buf failed.");
-        (void)memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal));
+        if (memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal)) != EOK) { LOGE("memset_s failed!"); }
         return IS_ERR_ALLOC_MEMORY;
     }
     KeyParams keyParams = { { aliasVal, aliasLen, true }, false, osAccountId };
@@ -555,22 +555,22 @@ static int32_t DecryptCredFileToParcel(const uint8_t *fileData, uint32_t fileLen
     Uint8Buff cipherBuff = { (uint8_t *)(fileData + CRED_FILE_ENC_NONCE_LEN), cipherLen };
     Uint8Buff plainBuff = { plain, plainLen };
     int32_t ret = GetLoaderInstance()->aesGcmDecrypt(&keyParams, &cipherBuff, &gcmParam, &plainBuff);
-    (void)memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal));
+    if (memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal)) != EOK) { LOGE("memset_s failed!"); }
     if (ret != HAL_SUCCESS) {
         LOGE("[CRED#DB]: aesGcmDecrypt cred file failed, res: %" LOG_PUB "d", ret);
         DEV_AUTH_REPORT_FAULT_EVENT_WITH_ERR_CODE(CRED_FILE_DECRYPT_EVENT,
             PROCESS_CRED_FILE_DECRYPT, IS_ERR_HUKS_IMPORT_KEY_FAILED);
-        (void)memset_s(plain, plainLen, 0, plainLen);
+        if (memset_s(plain, plainLen, 0, plainLen) != EOK) { LOGE("memset_s failed!"); }
         HcFree(plain);
         return ret;
     }
     if (!ParcelWrite(parcel, plain, plainLen)) {
         LOGE("[CRED#DB]: parcel write plain failed.");
-        (void)memset_s(plain, plainLen, 0, plainLen);
+        if (memset_s(plain, plainLen, 0, plainLen) != EOK) { LOGE("memset_s failed!"); }
         HcFree(plain);
         return IS_ERR_MEMORY_COPY;
     }
-    (void)memset_s(plain, plainLen, 0, plainLen);
+    if (memset_s(plain, plainLen, 0, plainLen) != EOK) { LOGE("memset_s failed!"); }
     HcFree(plain);
     return IS_SUCCESS;
 }
