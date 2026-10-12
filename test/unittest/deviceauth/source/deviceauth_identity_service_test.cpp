@@ -1867,7 +1867,8 @@ HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest001, TestSize.Level0)
     uint32_t plainLen = HcStrlen(plain);
     uint8_t *enc = nullptr;
     uint32_t encLen = 0;
-    EXPECT_EQ(EncryptCredFileData(reinterpret_cast<const uint8_t *>(plain), plainLen, DEFAULT_OS_ACCOUNT, &enc, &encLen), IS_SUCCESS);
+    EXPECT_EQ(EncryptCredFileData(reinterpret_cast<const uint8_t *>(plain),
+        plainLen, DEFAULT_OS_ACCOUNT, &enc, &encLen), IS_SUCCESS);
     ASSERT_NE(enc, nullptr);
     EXPECT_GT(encLen, CRED_FILE_ENC_NONCE_LEN + AE_TAG_LEN);
     HcParcel parcel = CreateParcel(0, 0);
@@ -1883,7 +1884,8 @@ HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest002, TestSize.Level0)
     const char *forged = "forged plaintext tlv that is not valid ciphertext";
     uint32_t forgedLen = HcStrlen(forged);
     HcParcel parcel = CreateParcel(0, 0);
-    EXPECT_NE(DecryptCredFileToParcel(reinterpret_cast<const uint8_t *>(forged), forgedLen, DEFAULT_OS_ACCOUNT, &parcel), IS_SUCCESS);
+    EXPECT_NE(DecryptCredFileToParcel(reinterpret_cast<const uint8_t *>(forged),
+        forgedLen, DEFAULT_OS_ACCOUNT, &parcel), IS_SUCCESS);
     DeleteParcel(&parcel);
 }
 HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest003, TestSize.Level0)
@@ -1907,7 +1909,8 @@ HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest004, TestSize.Level0)
 }
 HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest005, TestSize.Level0)
 {
-    EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);; EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
+    EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
+    EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
     EXPECT_TRUE(CredFileEncKeyExist(DEFAULT_OS_ACCOUNT));
 }
 HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest006, TestSize.Level0)
@@ -1957,7 +1960,8 @@ HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest011, TestSize.Level0)
     g_mockEncRet = HAL_ERR_HUKS;
     uint8_t *enc = nullptr;
     uint32_t encLen = 0;
-    EXPECT_NE(EncryptCredFileData(reinterpret_cast<const uint8_t *>("test"), 4, DEFAULT_OS_ACCOUNT, &enc, &encLen), IS_SUCCESS);
+    EXPECT_NE(EncryptCredFileData(reinterpret_cast<const uint8_t *>("test"),
+        4, DEFAULT_OS_ACCOUNT, &enc, &encLen), IS_SUCCESS);
     DisableMockLoader();
 }
 HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest012, TestSize.Level0)
@@ -1967,7 +1971,8 @@ HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest012, TestSize.Level0)
     uint32_t plainLen = HcStrlen(plain);
     uint8_t *enc = nullptr;
     uint32_t encLen = 0;
-    EXPECT_EQ(EncryptCredFileData(reinterpret_cast<const uint8_t *>(plain), plainLen, DEFAULT_OS_ACCOUNT, &enc, &encLen), IS_SUCCESS);
+    EXPECT_EQ(EncryptCredFileData(reinterpret_cast<const uint8_t *>(plain),
+        plainLen, DEFAULT_OS_ACCOUNT, &enc, &encLen), IS_SUCCESS);
     ASSERT_NE(enc, nullptr);
     EnableMockLoader();
     g_mockDecRet = HAL_ERR_HUKS;
