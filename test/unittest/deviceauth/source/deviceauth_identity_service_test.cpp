@@ -1768,7 +1768,7 @@ HWTEST_F(CredAuthTest, CredAuthTest002, TestSize.Level0)
     ca->authCredential(DEFAULT_OS_ACCOUNT, TEST_REQ_ID, GenerateBindParams(), nullptr);
     ca->processCredData(TEST_REQ_ID, nullptr, DATA_LEN, nullptr);
     ca->processCredData(TEST_REQ_ID, nullptr, DATA_LEN, &g_caCallback);
-    ca->processCredData(TEST_REQ_ID, (const uint8_t*)GenerateBindParams(), DATA_LEN, nullptr);
+    ca->processCredData(TEST_REQ_ID, reinterpret_cast<const uint8_t *>(GenerateBindParams()), DATA_LEN, nullptr);
 }
 #include "huks_adapter.h"
 static AlgLoader g_mockLoader;
@@ -1781,29 +1781,41 @@ static volatile bool g_mockKeyExistEnabled = false;
 static int32_t g_mockKeyExistRet = HAL_SUCCESS;
 static int32_t MockGenKey(const KeyParams *kp, uint32_t keyLen, KeyPurpose purpose)
 {
-    if (g_mockGenKeyRet != HAL_SUCCESS) { return g_mockGenKeyRet; }
+    if (g_mockGenKeyRet != HAL_SUCCESS) {
+        return g_mockGenKeyRet;
+    }
     return GetRealLoaderInstance()->generateAesGcmKeyWithStorage(kp, keyLen, purpose);
 }
 static int32_t MockEncrypt(const KeyParams *kp, const Uint8Buff *plain, const GcmParam *enc, Uint8Buff *cipher)
 {
-    if (g_mockEncRet != HAL_SUCCESS) { return g_mockEncRet; }
+    if (g_mockEncRet != HAL_SUCCESS) {
+        return g_mockEncRet;
+    }
     return GetRealLoaderInstance()->aesGcmEncrypt(kp, plain, enc, cipher);
 }
 static int32_t MockDecrypt(const KeyParams *kp, const Uint8Buff *cipher, const GcmParam *dec, Uint8Buff *plain)
 {
-    if (g_mockDecRet != HAL_SUCCESS) { return g_mockDecRet; }
+    if (g_mockDecRet != HAL_SUCCESS) {
+        return g_mockDecRet;
+    }
     return GetRealLoaderInstance()->aesGcmDecrypt(kp, cipher, dec, plain);
 }
 static int32_t MockCheckKeyExist(const Uint8Buff *alias, bool isDe, int32_t osAccount)
 {
-    if (g_mockKeyExistEnabled) { return g_mockKeyExistRet; }
+    if (g_mockKeyExistEnabled) {
+        return g_mockKeyExistRet;
+    }
     return GetRealLoaderInstance()->checkKeyExist(alias, isDe, osAccount);
 }
 static void EnableMockLoader()
 {
     if (!g_mockInited) {
         const AlgLoader *real = GetRealLoaderInstance();
-        (void)memcpy_s(&g_mockLoader, sizeof(g_mockLoader), const_cast<AlgLoader *>(real), sizeof(AlgLoader));
+        AlgLoader *dst = &g_mockLoader;
+        const AlgLoader *src = real;
+        if (memcpy_s(dst, sizeof(g_mockLoader), src, sizeof(AlgLoader)) != EOK) {
+            return;
+        }
         g_mockLoader.generateAesGcmKeyWithStorage = MockGenKey;
         g_mockLoader.aesGcmEncrypt = MockEncrypt;
         g_mockLoader.aesGcmDecrypt = MockDecrypt;
@@ -1823,7 +1835,9 @@ static void DisableMockLoader()
 }
 extern "C" __attribute__((noinline, used)) const AlgLoader *GetLoaderInstance_TestOverride(void)
 {
-    if (g_useMock) { return &g_mockLoader; }
+    if (g_useMock) {
+        return &g_mockLoader;
+    }
     return GetRealLoaderInstance();
 }
 class CredFileEncryptionTest : public testing::Test {
