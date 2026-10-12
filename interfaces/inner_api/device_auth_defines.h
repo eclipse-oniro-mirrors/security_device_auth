@@ -208,6 +208,7 @@ enum {
     IS_ERR_CONVERT_FAILED = 0x00040007,                                   // 262151
     IS_ERR_NOT_SUPPORT = 0x00040008,                                      // 262152
     IS_ERR_INIT_FAILED = 0x00040009,                                      // 262153
+    IS_ERR_FILE_IO = 0x0004000A,                                         // 262154
 
     // IS listener error
     IS_ERR_LISTENER_NOT_EXIST = 0x00050001,                               // 327681
