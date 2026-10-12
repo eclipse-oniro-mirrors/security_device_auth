@@ -5,10 +5,11 @@
 #include "device_auth.h"
 #include "device_auth_defines.h"
 #include "json_utils.h"
+#include "huks_adapter.h"
 #include "base/security/device_auth/services/identity_service/src/identity_operation.c"
 #include "base/security/device_auth/services/identity_service/src/identity_service_impl.c"
 #include "base/security/device_auth/services/identity_service/session/src/cred_session_util.c"
-#define GetLoaderInstance GetLoaderInstance_TestOverride
+#define GetLoaderInstance GetLoaderInstance_TestOverride  // NOLINT
 extern "C" const AlgLoader *GetLoaderInstance_TestOverride(void);
 #include "base/security/device_auth/services/data_manager/cred_data_manager/src/credential_data_manager.c"
 #undef GetLoaderInstance
@@ -1770,7 +1771,6 @@ HWTEST_F(CredAuthTest, CredAuthTest002, TestSize.Level0)
     ca->processCredData(TEST_REQ_ID, nullptr, DATA_LEN, &g_caCallback);
     ca->processCredData(TEST_REQ_ID, reinterpret_cast<const uint8_t *>(GenerateBindParams()), DATA_LEN, nullptr);
 }
-#include "huks_adapter.h"
 static AlgLoader g_mockLoader;
 static bool g_mockInited = false;
 static volatile bool g_useMock = false;

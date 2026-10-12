@@ -466,17 +466,15 @@ static void CleanEncSensitiveData(uint8_t *aliasVal, uint32_t aliasSize,
     if (memset_s(nonce, nonceSize, 0, nonceSize) != EOK) { LOGE("memset_s failed!"); }
 }
 
-static int32_t DoAesGcmEncrypt(const uint8_t *plain, uint32_t plainLen, int32_t osAccountId,
-    const uint8_t *aliasVal, uint32_t aliasLen, uint8_t *nonce, uint8_t *buf, uint32_t totalLen)
+static int32_t DoAesGcmEncrypt(const Uint8Buff *plain, const Uint8Buff *alias,
+    uint8_t *nonce, uint8_t *buf)
 {
-    uint32_t cipherLen = plainLen + AE_TAG_LEN;
-    KeyParams keyParams = { { (uint8_t *)aliasVal, aliasLen, true }, false, osAccountId };
+    int32_t osAccountId = DEFAULT_OS_ACCOUNT;
+    KeyParams keyParams = { { alias->val, alias->length, true }, false, osAccountId };
     GcmParam gcmParam = { nonce, CRED_FILE_ENC_NONCE_LEN, (uint8_t *)CRED_FILE_ENC_AAD,
         CRED_FILE_ENC_AAD_LEN };
-    Uint8Buff plainBuff = { (uint8_t *)plain, plainLen };
-    Uint8Buff cipherBuff = { buf + CRED_FILE_ENC_NONCE_LEN, cipherLen };
-    (void)totalLen;
-    return GetLoaderInstance()->aesGcmEncrypt(&keyParams, &plainBuff, &gcmParam, &cipherBuff);
+    Uint8Buff cipherBuff = { buf + CRED_FILE_ENC_NONCE_LEN, plain->length + AE_TAG_LEN };
+    return GetLoaderInstance()->aesGcmEncrypt(&keyParams, plain, &gcmParam, &cipherBuff);
 }
 
 static int32_t EncryptCredFileData(const uint8_t *plain, uint32_t plainLen, int32_t osAccountId,
@@ -513,7 +511,9 @@ static int32_t EncryptCredFileData(const uint8_t *plain, uint32_t plainLen, int3
         CleanEncSensitiveData(aliasVal, sizeof(aliasVal), nonce, sizeof(nonce));
         return IS_ERR_MEMORY_COPY;
     }
-    ret = DoAesGcmEncrypt(plain, plainLen, osAccountId, aliasVal, aliasLen, nonce, buf, totalLen);
+    Uint8Buff plainBuff = { (uint8_t *)plain, plainLen };
+    Uint8Buff aliasBuff = { aliasVal, aliasLen };
+    ret = DoAesGcmEncrypt(&plainBuff, &aliasBuff, nonce, buf);
     CleanEncSensitiveData(aliasVal, sizeof(aliasVal), nonce, sizeof(nonce));
     if (ret != HAL_SUCCESS) {
         LOGE("[CRED#DB]: aesGcmEncrypt cred file failed, res: %" LOG_PUB "d", ret);
