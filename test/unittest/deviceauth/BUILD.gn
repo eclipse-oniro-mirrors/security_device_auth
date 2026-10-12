@@ -134,6 +134,8 @@ ohos_unittest("deviceauth_llt") {
 
   deps = []
 
+  sources -= [ "${key_management_adapter_path}/impl/src/alg_loader.c" ]
+
   external_deps = [
     "cJSON:cjson",
     "bounds_checking_function:libsec_shared",

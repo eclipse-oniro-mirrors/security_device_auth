@@ -16,7 +16,9 @@
 #include <cinttypes>
 #include <unistd.h>
 #include <gtest/gtest.h>
+#include "alg_defs.h"
 #include "alg_loader.h"
+#include "hal_error.h"
 #include "common_defs.h"
 #include "compatible_sub_session.h"
 #include "device_auth.h"
@@ -39,7 +41,10 @@
 #include "base/security/device_auth/services/identity_service/src/identity_operation.c"
 #include "base/security/device_auth/services/identity_service/src/identity_service_impl.c"
 #include "base/security/device_auth/services/identity_service/session/src/cred_session_util.c"
+#define GetLoaderInstance GetLoaderInstance_TestOverride
+extern "C" const AlgLoader *GetLoaderInstance_TestOverride(void);
 #include "base/security/device_auth/services/data_manager/cred_data_manager/src/credential_data_manager.c"
+#undef GetLoaderInstance
 
 #include "cred_listener.h"
 
@@ -2039,6 +2044,83 @@ HWTEST_F(CredAuthTest, CredAuthTest002, TestSize.Level0)
     ca->processCredData(TEST_REQ_ID, (const uint8_t*)GenerateBindParams(), DATA_LEN, nullptr);
 }
 
+// ---- Mock AlgLoader by replacing GetLoaderInstance (alg_loader.c excluded from link) ----
+#include "huks_adapter.h"
+static AlgLoader g_mockLoader;
+static bool g_mockInited = false;
+static volatile bool g_useMock = false;
+static int32_t g_mockGenKeyRet = HAL_SUCCESS;
+static int32_t g_mockEncRet = HAL_SUCCESS;
+static int32_t g_mockDecRet = HAL_SUCCESS;
+static volatile bool g_mockKeyExistEnabled = false;
+static int32_t g_mockKeyExistRet = HAL_SUCCESS;
+
+static int32_t MockGenKey(const KeyParams *kp, uint32_t keyLen, KeyPurpose purpose)
+{
+    if (g_mockGenKeyRet != HAL_SUCCESS) {
+        return g_mockGenKeyRet;
+    }
+    return GetRealLoaderInstance()->generateAesGcmKeyWithStorage(kp, keyLen, purpose);
+}
+
+static int32_t MockEncrypt(const KeyParams *kp, const Uint8Buff *plain,
+    const GcmParam *enc, Uint8Buff *cipher)
+{
+    if (g_mockEncRet != HAL_SUCCESS) {
+        return g_mockEncRet;
+    }
+    return GetRealLoaderInstance()->aesGcmEncrypt(kp, plain, enc, cipher);
+}
+
+static int32_t MockDecrypt(const KeyParams *kp, const Uint8Buff *cipher,
+    const GcmParam *dec, Uint8Buff *plain)
+{
+    if (g_mockDecRet != HAL_SUCCESS) {
+        return g_mockDecRet;
+    }
+    return GetRealLoaderInstance()->aesGcmDecrypt(kp, cipher, dec, plain);
+}
+
+static int32_t MockCheckKeyExist(const Uint8Buff *alias, bool isDe, int32_t osAccount)
+{
+    if (g_mockKeyExistEnabled) {
+        return g_mockKeyExistRet;
+    }
+    return GetRealLoaderInstance()->checkKeyExist(alias, isDe, osAccount);
+}
+
+static void EnableMockLoader()
+{
+    if (!g_mockInited) {
+        const AlgLoader *real = GetRealLoaderInstance();
+        memcpy(&g_mockLoader, const_cast<AlgLoader *>(real), sizeof(AlgLoader));
+        g_mockLoader.generateAesGcmKeyWithStorage = MockGenKey;
+        g_mockLoader.aesGcmEncrypt = MockEncrypt;
+        g_mockLoader.aesGcmDecrypt = MockDecrypt;
+        g_mockLoader.checkKeyExist = MockCheckKeyExist;
+        g_mockInited = true;
+    }
+    g_useMock = true;
+}
+
+static void DisableMockLoader()
+{
+    g_useMock = false;
+    g_mockGenKeyRet = HAL_SUCCESS;
+    g_mockEncRet = HAL_SUCCESS;
+    g_mockDecRet = HAL_SUCCESS;
+    g_mockKeyExistEnabled = false;
+    g_mockKeyExistRet = HAL_SUCCESS;
+}
+
+extern "C" __attribute__((noinline, used)) const AlgLoader *GetLoaderInstance_TestOverride(void)
+{
+    if (g_useMock) {
+        return &g_mockLoader;
+    }
+    return GetRealLoaderInstance();
+}
+
 class CredFileEncryptionTest : public testing::Test {
 public:
     static void SetUpTestCase() {}
@@ -2151,5 +2233,77 @@ HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest008, TestSize.Level0)
     EXPECT_TRUE(CredFileEncKeyExist(DEFAULT_OS_ACCOUNT));
     DeleteCredFileEncKey(DEFAULT_OS_ACCOUNT);
     EXPECT_FALSE(CredFileEncKeyExist(DEFAULT_OS_ACCOUNT));
+}
+
+HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest009, TestSize.Level0)
+{
+    // mock HUKS genKey fail → EnsureCredFileEncKeyExist fails
+    DeleteCredFileEncKey(DEFAULT_OS_ACCOUNT);
+    EnableMockLoader();
+    g_mockGenKeyRet = HAL_ERR_HUKS;
+    EXPECT_NE(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
+    DisableMockLoader();
+}
+
+HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest010, TestSize.Level0)
+{
+    // mock checkKeyExist returns error (not NOT_EXIST) → EnsureCredFileEncKeyExist fails
+    DeleteCredFileEncKey(DEFAULT_OS_ACCOUNT);
+    EnableMockLoader();
+    g_mockKeyExistEnabled = true;
+    g_mockKeyExistRet = HAL_ERR_HUKS;
+    EXPECT_NE(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
+    DisableMockLoader();
+}
+
+HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest011, TestSize.Level0)
+{
+    // mock aesGcmEncrypt fail → EncryptCredFileData fails
+    EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
+    EnableMockLoader();
+    g_mockEncRet = HAL_ERR_HUKS;
+    uint8_t *enc = nullptr;
+    uint32_t encLen = 0;
+    EXPECT_NE(EncryptCredFileData(reinterpret_cast<const uint8_t *>("test"), 4,
+        DEFAULT_OS_ACCOUNT, &enc, &encLen), IS_SUCCESS);
+    DisableMockLoader();
+}
+
+HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest012, TestSize.Level0)
+{
+    // mock generateRandom fail (nonce) → EncryptCredFileData fails
+    // generateRandom is NOT on the mock loader (it's a different vtable slot);
+    // instead, mock aesGcmDecrypt fail → DecryptCredFileToParcel fails
+    EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
+    const char *plain = "data for decrypt fail test";
+    uint32_t plainLen = HcStrlen(plain);
+    uint8_t *enc = nullptr;
+    uint32_t encLen = 0;
+    EXPECT_EQ(EncryptCredFileData(reinterpret_cast<const uint8_t *>(plain), plainLen,
+        DEFAULT_OS_ACCOUNT, &enc, &encLen), IS_SUCCESS);
+    ASSERT_NE(enc, nullptr);
+    EnableMockLoader();
+    g_mockDecRet = HAL_ERR_HUKS;
+    HcParcel parcel = CreateParcel(0, 0);
+    EXPECT_NE(DecryptCredFileToParcel(enc, encLen, DEFAULT_OS_ACCOUNT, &parcel), IS_SUCCESS);
+    DeleteParcel(&parcel);
+    DisableMockLoader();
+    HcFree(enc);
+}
+
+HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest013, TestSize.Level0)
+{
+    // BuildCredFileEncKeyAlias with bufLen=0 → fail
+    uint8_t buf[1];
+    uint32_t len = 0;
+    EXPECT_NE(BuildCredFileEncKeyAlias(DEFAULT_OS_ACCOUNT, buf, 0, &len), IS_SUCCESS);
+}
+
+HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest014, TestSize.Level0)
+{
+    // ReadCredFileToParcel with nonexistent path → ReadFileRaw fails
+    HcParcel parcel = CreateParcel(0, 0);
+    EXPECT_FALSE(ReadCredFileToParcel("/nonexistent/cred.dat", DEFAULT_OS_ACCOUNT, &parcel));
+    DeleteParcel(&parcel);
 }
 } // namespace
