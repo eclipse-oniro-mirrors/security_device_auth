@@ -2122,4 +2122,34 @@ HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest005, TestSize.Level0)
     EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
     EXPECT_TRUE(CredFileEncKeyExist(DEFAULT_OS_ACCOUNT));
 }
+
+HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest006, TestSize.Level0)
+{
+    // decrypt with file too short (< NONCE+TAG=28B) → expect failure
+    uint8_t shortBuf[10] = {0};
+    HcParcel parcel = CreateParcel(0, 0);
+    EXPECT_NE(DecryptCredFileToParcel(shortBuf, sizeof(shortBuf),
+        DEFAULT_OS_ACCOUNT, &parcel), IS_SUCCESS);
+    DeleteParcel(&parcel);
+}
+
+HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest007, TestSize.Level0)
+{
+    // fresh: no file, no key → ensure key → save encrypted (no upgrade needed)
+    DeleteDatabase();
+    DeleteCredFileEncKey(DEFAULT_OS_ACCOUNT);
+    EXPECT_FALSE(CredFileEncKeyExist(DEFAULT_OS_ACCOUNT));
+    EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
+    EXPECT_EQ(SaveOsAccountCredDb(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
+    EXPECT_TRUE(CredFileEncKeyExist(DEFAULT_OS_ACCOUNT));
+}
+
+HWTEST_F(CredFileEncryptionTest, CredFileEncryptionTest008, TestSize.Level0)
+{
+    // delete key: create → verify exists → delete → verify gone
+    EXPECT_EQ(EnsureCredFileEncKeyExist(DEFAULT_OS_ACCOUNT), IS_SUCCESS);
+    EXPECT_TRUE(CredFileEncKeyExist(DEFAULT_OS_ACCOUNT));
+    DeleteCredFileEncKey(DEFAULT_OS_ACCOUNT);
+    EXPECT_FALSE(CredFileEncKeyExist(DEFAULT_OS_ACCOUNT));
+}
 } // namespace
