@@ -467,9 +467,8 @@ static void CleanEncSensitiveData(uint8_t *aliasVal, uint32_t aliasSize,
 }
 
 static int32_t DoAesGcmEncrypt(const Uint8Buff *plain, const Uint8Buff *alias,
-    uint8_t *nonce, uint8_t *buf)
+    int32_t osAccountId, uint8_t *nonce, uint8_t *buf)
 {
-    int32_t osAccountId = DEFAULT_OS_ACCOUNT;
     KeyParams keyParams = { { alias->val, alias->length, true }, false, osAccountId };
     GcmParam gcmParam = { nonce, CRED_FILE_ENC_NONCE_LEN, (uint8_t *)CRED_FILE_ENC_AAD,
         CRED_FILE_ENC_AAD_LEN };
@@ -513,7 +512,7 @@ static int32_t EncryptCredFileData(const uint8_t *plain, uint32_t plainLen, int3
     }
     Uint8Buff plainBuff = { (uint8_t *)plain, plainLen };
     Uint8Buff aliasBuff = { aliasVal, aliasLen };
-    ret = DoAesGcmEncrypt(&plainBuff, &aliasBuff, nonce, buf);
+    ret = DoAesGcmEncrypt(&plainBuff, &aliasBuff, osAccountId, nonce, buf);
     CleanEncSensitiveData(aliasVal, sizeof(aliasVal), nonce, sizeof(nonce));
     if (ret != HAL_SUCCESS) {
         LOGE("[CRED#DB]: aesGcmEncrypt cred file failed, res: %" LOG_PUB "d", ret);
