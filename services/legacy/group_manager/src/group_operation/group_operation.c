@@ -626,6 +626,10 @@ static int32_t CreateGroupInner(int32_t osAccountId, int64_t requestId, const ch
         LOGE("Invalid input parameters!");
         return HC_ERR_INVALID_PARAMS;
     }
+    if (!CheckIsForegroundOsAccountId(osAccountId)) {
+        LOGE("This access is not from the foreground user, rejected it.");
+        return HC_ERR_CROSS_USER_ACCESS;
+    }
     if (!IsOsAccountUnlocked(osAccountId)) {
         LOGE("Os account is not unlocked!");
         return HC_ERR_OS_ACCOUNT_NOT_UNLOCKED;
