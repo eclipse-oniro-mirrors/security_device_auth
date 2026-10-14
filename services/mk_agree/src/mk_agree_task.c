@@ -402,9 +402,10 @@ static int32_t ProcessPakeMkAgreeRequest(MkAgreeTaskBase *task, const CJson *in,
         LOGE("Failed to parse pake request data!");
         return res;
     }
-    CJson *payload = CreateJsonFromString((const char *)payloadBuff.val);
+    CJson *payload = NULL;
+    res = CreateJsonFromData(payloadBuff.val, payloadBuff.length, &payload);
     ClearFreeUint8Buff(&payloadBuff);
-    if (payload == NULL) {
+    if (res != HC_SUCCESS) {
         LOGE("Failed to create payload json!");
         return HC_ERR_JSON_CREATE;
     }
@@ -490,9 +491,10 @@ static int32_t ProcessPakeMkAgreeResponse(MkAgreeTaskBase *task, const CJson *in
         LOGE("Failed to parse pake response data!");
         return res;
     }
-    CJson *payload = CreateJsonFromString((const char *)payloadBuff.val);
+    CJson *payload = NULL;
+    res = CreateJsonFromData(payloadBuff.val, payloadBuff.length, &payload);
     ClearFreeUint8Buff(&payloadBuff);
-    if (payload == NULL) {
+    if (res != HC_SUCCESS) {
         LOGE("Failed to create payload json!");
         return HC_ERR_JSON_CREATE;
     }
