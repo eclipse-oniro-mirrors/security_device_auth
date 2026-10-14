@@ -110,8 +110,7 @@ static void DisableMockLoader()
     g_mockKeyExistRet = HAL_SUCCESS;
 }
 
-extern "C" __attribute__((noinline, used))
-const AlgLoader *GetLoaderInstance_TestOverride(void)
+extern "C" __attribute__((noinline, used)) const AlgLoader *GetLoaderInstance_TestOverride(void)
 {
     if (g_useMock) {
         return &g_mockLoader;
