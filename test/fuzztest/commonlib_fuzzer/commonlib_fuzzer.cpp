@@ -66,6 +66,17 @@ static const uint32_t FUZZ_UINT32_VAL_B = 0x22222222;
 static const uint32_t FUZZ_RECORD_BUF_SIZE = 256;
 static const int32_t FUZZ_OS_ACCOUNT_ID = 100;
 static const uint32_t FUZZ_OPERATION_TYPE = 2;
+/* TLV wire node sizes (tag + length + data); used to compute struct root lengths */
+static const uint16_t FUZZ_TLV_UINT32_NODE_LEN =
+    sizeof(uint16_t) + sizeof(uint16_t) + sizeof(uint32_t);     /* hc TlvUint32 = 8 */
+static const uint32_t FUZZ_CRED_TLV_UINT32_NODE_LEN =
+    sizeof(uint16_t) + sizeof(uint32_t) + sizeof(uint32_t);     /* cred CredTlvUint32 = 10 */
+/* TlvBuffer declared length intentionally larger than the parcel data to exercise
+   the insufficient-data branch of ParseTlvBuffer */
+static const uint32_t FUZZ_TLV_BUFFER_DECLARED_LEN = 10;
+/* mk_agree protocol type that is neither TASK_TYPE_ISO nor TASK_TYPE_PAKE,
+   used to exercise the default (invalid) branch of CreateMkAgreeTask */
+static const int32_t FUZZ_MK_AGREE_INVALID_PROTOCOL_TYPE = 99;
 
 typedef struct {
     DECLARE_TLV_STRUCT(2)
@@ -717,7 +728,7 @@ static void TlvStructRoundtripTest001()
     InitFuzzTlvStruct(&tlvStruct, FUZZ_TLV_TAG_ROOT);
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE * 4, TEST_BUFFER_SIZE);
     ParcelWriteUint16(&parcel, FUZZ_TLV_TAG_ROOT);
-    ParcelWriteUint16(&parcel, 16);
+    ParcelWriteUint16(&parcel, static_cast<uint16_t>(2 * FUZZ_TLV_UINT32_NODE_LEN));
     ParcelWriteUint16(&parcel, FUZZ_TLV_TAG_M1);
     ParcelWriteUint16(&parcel, sizeof(uint32_t));
     ParcelWriteUint32(&parcel, FUZZ_UINT32_VAL_A);
@@ -735,7 +746,7 @@ static void TlvStructStrictFailTest001()
     InitFuzzTlvStruct(&tlvStruct, FUZZ_TLV_TAG_ROOT);
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE * 2, TEST_BUFFER_SIZE);
     ParcelWriteUint16(&parcel, FUZZ_TLV_TAG_ROOT);
-    ParcelWriteUint16(&parcel, 8);
+    ParcelWriteUint16(&parcel, FUZZ_TLV_UINT32_NODE_LEN);
     ParcelWriteUint16(&parcel, FUZZ_TLV_TAG_M1);
     ParcelWriteUint16(&parcel, sizeof(uint32_t));
     ParcelWriteUint32(&parcel, FUZZ_UINT32_VAL_A);
@@ -750,7 +761,7 @@ static void TlvStructUnknownTagTest001()
     InitFuzzTlvStruct(&tlvStruct, FUZZ_TLV_TAG_ROOT);
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE * 4, TEST_BUFFER_SIZE);
     ParcelWriteUint16(&parcel, FUZZ_TLV_TAG_ROOT);
-    ParcelWriteUint16(&parcel, 24);
+    ParcelWriteUint16(&parcel, static_cast<uint16_t>(3 * FUZZ_TLV_UINT32_NODE_LEN));
     ParcelWriteUint16(&parcel, FUZZ_TLV_TAG_M1);
     ParcelWriteUint16(&parcel, sizeof(uint32_t));
     ParcelWriteUint32(&parcel, FUZZ_UINT32_VAL_A);
@@ -822,11 +833,11 @@ static void TlvBufferTest001()
     InitTlvBuffer(&tlvBuf, FUZZ_TLV_TAG_BUF);
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE, TEST_BUFFER_SIZE);
     ParcelWriteUint16(&parcel, FUZZ_TLV_TAG_BUF);
-    ParcelWriteUint16(&parcel, 10);
+    ParcelWriteUint16(&parcel, static_cast<uint16_t>(FUZZ_TLV_BUFFER_DECLARED_LEN));
     uint8_t data[5] = { 0 };
     ParcelWrite(&parcel, data, sizeof(data));
     TlvBase *base = (TlvBase *)&tlvBuf;
-    base->length = 10;
+    base->length = FUZZ_TLV_BUFFER_DECLARED_LEN;
     (void)ParseTlvBuffer(base, &parcel, HC_FALSE);
     (void)ParseTlvBuffer(nullptr, &parcel, HC_FALSE);
     (void)EncodeTlvBuffer(base, nullptr);
@@ -872,28 +883,21 @@ static void TlvFixLengthTypesTest001()
 {
     TlvUint8 u8;
     InitTlvUint8(&u8, FUZZ_TLV_TAG_BUF);
-    u8.data = 1;
     TlvUint16 u16;
     InitTlvUint16(&u16, FUZZ_TLV_TAG_BUF);
-    u16.data = 2;
     TlvUint32 u32;
     InitTlvUint32(&u32, FUZZ_TLV_TAG_BUF);
-    u32.data = 3;
+    u32.data = FUZZ_UINT32_VAL_A;
     TlvUint64 u64;
     InitTlvUint64(&u64, FUZZ_TLV_TAG_BUF);
-    u64.data = 4;
     TlvInt8 i8;
     InitTlvInt8(&i8, FUZZ_TLV_TAG_BUF);
-    i8.data = 5;
     TlvInt16 i16;
     InitTlvInt16(&i16, FUZZ_TLV_TAG_BUF);
-    i16.data = 6;
     TlvInt32 i32;
     InitTlvInt32(&i32, FUZZ_TLV_TAG_BUF);
-    i32.data = 7;
     TlvInt64 i64;
     InitTlvInt64(&i64, FUZZ_TLV_TAG_BUF);
-    i64.data = 8;
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE * 4, TEST_BUFFER_SIZE);
     (void)EncodeTlvMessage((TlvBase *)&u32, &parcel);
     TlvUint32 u32Dst;
@@ -960,7 +964,7 @@ static void CredTlvStructRoundtripTest001()
     InitFuzzCredTlvStruct(&tlvStruct, FUZZ_TLV_TAG_ROOT);
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE * 4, TEST_BUFFER_SIZE);
     ParcelWriteUint16(&parcel, FUZZ_TLV_TAG_ROOT);
-    ParcelWriteUint32(&parcel, 20);
+    ParcelWriteUint32(&parcel, 2 * FUZZ_CRED_TLV_UINT32_NODE_LEN);
     ParcelWriteUint16(&parcel, FUZZ_TLV_TAG_M1);
     ParcelWriteUint32(&parcel, sizeof(uint32_t));
     ParcelWriteUint32(&parcel, FUZZ_UINT32_VAL_A);
@@ -978,7 +982,7 @@ static void CredTlvStructUnknownTagTest001()
     InitFuzzCredTlvStruct(&tlvStruct, FUZZ_TLV_TAG_ROOT);
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE * 4, TEST_BUFFER_SIZE);
     ParcelWriteUint16(&parcel, FUZZ_TLV_TAG_ROOT);
-    ParcelWriteUint32(&parcel, 30);
+    ParcelWriteUint32(&parcel, 3 * FUZZ_CRED_TLV_UINT32_NODE_LEN);
     ParcelWriteUint16(&parcel, FUZZ_TLV_TAG_M1);
     ParcelWriteUint32(&parcel, sizeof(uint32_t));
     ParcelWriteUint32(&parcel, FUZZ_UINT32_VAL_A);
@@ -999,7 +1003,7 @@ static void CredTlvStructStrictFailTest001()
     InitFuzzCredTlvStruct(&tlvStruct, FUZZ_TLV_TAG_ROOT);
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE * 2, TEST_BUFFER_SIZE);
     ParcelWriteUint16(&parcel, FUZZ_TLV_TAG_ROOT);
-    ParcelWriteUint32(&parcel, 10);
+    ParcelWriteUint32(&parcel, FUZZ_CRED_TLV_UINT32_NODE_LEN);
     ParcelWriteUint16(&parcel, FUZZ_TLV_TAG_M1);
     ParcelWriteUint32(&parcel, sizeof(uint32_t));
     ParcelWriteUint32(&parcel, FUZZ_UINT32_VAL_A);
@@ -1141,7 +1145,7 @@ static void MkAgreeTaskProtocolTypeTest001()
     MkAgreeTaskBase *task = nullptr;
     (void)CreateMkAgreeTask(TASK_TYPE_ISO, in, &task);
     (void)CreateMkAgreeTask(-1, in, &task);
-    (void)CreateMkAgreeTask(99, in, &task);
+    (void)CreateMkAgreeTask(FUZZ_MK_AGREE_INVALID_PROTOCOL_TYPE, in, &task);
     CJson *empty = CreateJson();
     (void)CreateMkAgreeTask(TASK_TYPE_PAKE, empty, &task);
     FreeJson(empty);
