@@ -791,7 +791,7 @@ static void LoadDataIfNotLoaded(int32_t osAccountId)
     LoadOsAccountCredDb(osAccountId);
 }
 
-static OsAccountCredInfo *GetCredInfoByOsAccountIdLocked(int32_t osAccountId)
+static OsAccountCredInfo *GetCredInfoByOsAccountId(int32_t osAccountId)
 {
     if (IsOsAccountSupported()) {
         LoadDataIfNotLoaded(osAccountId);
@@ -813,14 +813,6 @@ static OsAccountCredInfo *GetCredInfoByOsAccountIdLocked(int32_t osAccountId)
         DestroyCredentialVec(&newInfo.credentials);
     }
     return returnInfo;
-}
-
-__attribute__((used)) static OsAccountCredInfo *GetCredInfoByOsAccountId(int32_t osAccountId)
-{
-    (void)LockHcMutex(g_credMutex);
-    OsAccountCredInfo *info = GetCredInfoByOsAccountIdLocked(osAccountId);
-    UnlockHcMutex(g_credMutex);
-    return info;
 }
 
 static void LoadDevAuthCredDb(void)
@@ -1483,7 +1475,7 @@ static int32_t AddCredToDbInner(int32_t osAccountId, int32_t subProfileId, const
 {
     LOGI("[CRED#DB]: Start to add a cred to database! [OsAccountId]: %" LOG_PUB "d", osAccountId);
     (void)LockHcMutex(g_credMutex);
-    OsAccountCredInfo *info = GetCredInfoByOsAccountIdLocked(osAccountId);
+    OsAccountCredInfo *info = GetCredInfoByOsAccountId(osAccountId);
     if (info == NULL) {
         UnlockHcMutex(g_credMutex);
         return IS_ERR_INVALID_PARAMS;
@@ -1546,7 +1538,7 @@ static int32_t DelCredentialInner(int32_t osAccountId, int32_t subProfileId, boo
     LOGI("[CRED#DB]: Start to delete credential from database! [OsAccountId]: %" LOG_PUB "d", osAccountId);
     (void)shouldPostInactive;
     (void)LockHcMutex(g_credMutex);
-    OsAccountCredInfo *info = GetCredInfoByOsAccountIdLocked(osAccountId);
+    OsAccountCredInfo *info = GetCredInfoByOsAccountId(osAccountId);
     if (info == NULL) {
         UnlockHcMutex(g_credMutex);
         return IS_ERR_INVALID_PARAMS;
@@ -1612,7 +1604,7 @@ static int32_t QueryCredentialsInner(int32_t osAccountId, bool isProfileDelete, 
     (void)subProfileId;
     (void)isProfileDelete;
     (void)LockHcMutex(g_credMutex);
-    OsAccountCredInfo *info = GetCredInfoByOsAccountIdLocked(osAccountId);
+    OsAccountCredInfo *info = GetCredInfoByOsAccountId(osAccountId);
     if (info == NULL) {
         UnlockHcMutex(g_credMutex);
         return IS_ERR_INVALID_PARAMS;
@@ -1670,7 +1662,7 @@ int32_t QueryCredentials(int32_t osAccountId, const CJson *in, const QueryCreden
 int32_t SaveOsAccountCredDb(int32_t osAccountId)
 {
     (void)LockHcMutex(g_credMutex);
-    OsAccountCredInfo *info = GetCredInfoByOsAccountIdLocked(osAccountId);
+    OsAccountCredInfo *info = GetCredInfoByOsAccountId(osAccountId);
     if (info == NULL) {
         UnlockHcMutex(g_credMutex);
         return IS_ERR_INVALID_PARAMS;
