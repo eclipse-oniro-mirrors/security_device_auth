@@ -1066,6 +1066,7 @@ static void GroupEntryTest001()
 
 static void DeviceEntryTest001()
 {
+    (void)GenerateDeviceEntryFromEntry(nullptr, nullptr);
     (void)DeepCopyDeviceEntry(nullptr);
     TrustedDeviceEntry *entry = CreateDeviceEntry();
     if (entry == nullptr) {

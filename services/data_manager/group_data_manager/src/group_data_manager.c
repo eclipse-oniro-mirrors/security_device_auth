@@ -238,6 +238,10 @@ static bool GetOsAccountInfoPath(int32_t osAccountId, char *infoPath, uint32_t p
 
 bool GenerateGroupEntryFromEntry(const TrustedGroupEntry *entry, TrustedGroupEntry *returnEntry)
 {
+    if (entry == NULL || returnEntry == NULL) {
+        LOGE("[DB]: Invalid null param for GenerateGroupEntryFromEntry!");
+        return false;
+    }
     if (HC_VECTOR_SIZE(&entry->managers) <= 0) {
         LOGE("[DB]: The group owner is lost!");
         return false;
@@ -279,6 +283,10 @@ bool GenerateGroupEntryFromEntry(const TrustedGroupEntry *entry, TrustedGroupEnt
 
 bool GenerateDeviceEntryFromEntry(const TrustedDeviceEntry *entry, TrustedDeviceEntry *returnEntry)
 {
+    if (entry == NULL || returnEntry == NULL) {
+        LOGE("[DB]: Invalid null param for GenerateDeviceEntryFromEntry!");
+        return false;
+    }
     returnEntry->groupEntry = NULL;
     if (!StringSet(&returnEntry->groupId, entry->groupId)) {
         LOGE("[DB]: Failed to copy udid!");
@@ -1238,6 +1246,10 @@ void DestroyGroupEntry(TrustedGroupEntry *groupEntry)
 
 TrustedGroupEntry *DeepCopyGroupEntry(const TrustedGroupEntry *entry)
 {
+    if (entry == NULL) {
+        LOGE("[DB]: Invalid null param for DeepCopyGroupEntry!");
+        return NULL;
+    }
     TrustedGroupEntry *returnEntry = CreateGroupEntry();
     if (returnEntry == NULL) {
         return NULL;
