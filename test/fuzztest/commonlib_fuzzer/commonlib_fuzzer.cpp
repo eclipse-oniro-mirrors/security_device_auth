@@ -71,6 +71,11 @@ static const uint16_t FUZZ_TLV_UINT32_NODE_LEN =
     sizeof(uint16_t) + sizeof(uint16_t) + sizeof(uint32_t);     /* hc TlvUint32 = 8 */
 static const uint32_t FUZZ_CRED_TLV_UINT32_NODE_LEN =
     sizeof(uint16_t) + sizeof(uint32_t) + sizeof(uint32_t);     /* cred CredTlvUint32 = 10 */
+/* TLV struct root-level body lengths (sum of child node wire sizes) */
+static const uint16_t FUZZ_TLV_STRUCT_LEN_TWO_MEMBERS = 2 * FUZZ_TLV_UINT32_NODE_LEN;   /* 2 TlvUint32 = 16 */
+static const uint16_t FUZZ_TLV_STRUCT_LEN_THREE_NODES = 3 * FUZZ_TLV_UINT32_NODE_LEN;   /* 3 nodes = 24 */
+static const uint32_t FUZZ_CRED_TLV_STRUCT_LEN_TWO_MEMBERS = 2 * FUZZ_CRED_TLV_UINT32_NODE_LEN; /* 20 */
+static const uint32_t FUZZ_CRED_TLV_STRUCT_LEN_THREE_NODES = 3 * FUZZ_CRED_TLV_UINT32_NODE_LEN; /* 30 */
 /* TlvBuffer declared length intentionally larger than the parcel data to exercise
    the insufficient-data branch of ParseTlvBuffer */
 static const uint32_t FUZZ_TLV_BUFFER_DECLARED_LEN = 10;
@@ -728,7 +733,7 @@ static void TlvStructRoundtripTest001()
     InitFuzzTlvStruct(&tlvStruct, FUZZ_TLV_TAG_ROOT);
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE * 4, TEST_BUFFER_SIZE);
     ParcelWriteUint16(&parcel, FUZZ_TLV_TAG_ROOT);
-    ParcelWriteUint16(&parcel, static_cast<uint16_t>(2 * FUZZ_TLV_UINT32_NODE_LEN));
+    ParcelWriteUint16(&parcel, FUZZ_TLV_STRUCT_LEN_TWO_MEMBERS);
     ParcelWriteUint16(&parcel, FUZZ_TLV_TAG_M1);
     ParcelWriteUint16(&parcel, sizeof(uint32_t));
     ParcelWriteUint32(&parcel, FUZZ_UINT32_VAL_A);
@@ -761,7 +766,7 @@ static void TlvStructUnknownTagTest001()
     InitFuzzTlvStruct(&tlvStruct, FUZZ_TLV_TAG_ROOT);
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE * 4, TEST_BUFFER_SIZE);
     ParcelWriteUint16(&parcel, FUZZ_TLV_TAG_ROOT);
-    ParcelWriteUint16(&parcel, static_cast<uint16_t>(3 * FUZZ_TLV_UINT32_NODE_LEN));
+    ParcelWriteUint16(&parcel, FUZZ_TLV_STRUCT_LEN_THREE_NODES);
     ParcelWriteUint16(&parcel, FUZZ_TLV_TAG_M1);
     ParcelWriteUint16(&parcel, sizeof(uint32_t));
     ParcelWriteUint32(&parcel, FUZZ_UINT32_VAL_A);
@@ -964,7 +969,7 @@ static void CredTlvStructRoundtripTest001()
     InitFuzzCredTlvStruct(&tlvStruct, FUZZ_TLV_TAG_ROOT);
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE * 4, TEST_BUFFER_SIZE);
     ParcelWriteUint16(&parcel, FUZZ_TLV_TAG_ROOT);
-    ParcelWriteUint32(&parcel, 2 * FUZZ_CRED_TLV_UINT32_NODE_LEN);
+    ParcelWriteUint32(&parcel, FUZZ_CRED_TLV_STRUCT_LEN_TWO_MEMBERS);
     ParcelWriteUint16(&parcel, FUZZ_TLV_TAG_M1);
     ParcelWriteUint32(&parcel, sizeof(uint32_t));
     ParcelWriteUint32(&parcel, FUZZ_UINT32_VAL_A);
@@ -982,7 +987,7 @@ static void CredTlvStructUnknownTagTest001()
     InitFuzzCredTlvStruct(&tlvStruct, FUZZ_TLV_TAG_ROOT);
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE * 4, TEST_BUFFER_SIZE);
     ParcelWriteUint16(&parcel, FUZZ_TLV_TAG_ROOT);
-    ParcelWriteUint32(&parcel, 3 * FUZZ_CRED_TLV_UINT32_NODE_LEN);
+    ParcelWriteUint32(&parcel, FUZZ_CRED_TLV_STRUCT_LEN_THREE_NODES);
     ParcelWriteUint16(&parcel, FUZZ_TLV_TAG_M1);
     ParcelWriteUint32(&parcel, sizeof(uint32_t));
     ParcelWriteUint32(&parcel, FUZZ_UINT32_VAL_A);
