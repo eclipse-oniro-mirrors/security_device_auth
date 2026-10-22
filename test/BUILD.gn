@@ -92,6 +92,7 @@ group("deviceauth_test_build") {
       "fuzztest/protocol/dlspeke_fuzzer:fuzztest",
       "fuzztest/protocol/ecspeke_fuzzer:fuzztest",
       "fuzztest/protocol/iso_fuzzer:fuzztest",
+      "fuzztest/session_manager/mini_session_fuzzer:fuzztest",
       "fuzztest/session_manager/session/v2/auth_sub_session/authsubsession_fuzzer:fuzztest",
       "fuzztest/session_manager/session/v2/expand_sub_session/expand_process_lib/authcodeimport_fuzzer:fuzztest",
       "fuzztest/session_manager/session/v2/expand_sub_session/expand_process_lib/pubkeyexchange_fuzzer:fuzztest",

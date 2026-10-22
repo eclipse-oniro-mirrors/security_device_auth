@@ -25,7 +25,6 @@
 #include "operation_data_manager.h"
 #include "mk_agree_task.h"
 #include "pseudonym_manager.h"
-#include "mini_session_manager.h"
 #include "device_auth.h"
 #include "account_module_defines.h"
 #include <cstdint>
@@ -83,12 +82,6 @@ static const uint32_t FUZZ_TLV_BUFFER_DECLARED_LEN = 10;
 /* mk_agree protocol type that is neither TASK_TYPE_ISO nor TASK_TYPE_PAKE,
    used to exercise the default (invalid) branch of CreateMkAgreeTask */
 static const int32_t FUZZ_MK_AGREE_INVALID_PROTOCOL_TYPE = 99;
-/* LightSession (mini_session) fuzz inputs */
-static const int64_t FUZZ_LIGHT_SESSION_REQ_ID = 0x1234;
-static const int32_t FUZZ_LIGHT_SESSION_OP_CODE = 1;
-static const uint32_t FUZZ_LIGHT_SESSION_RANDOM_LEN = sizeof(uint64_t);
-static uint8_t g_lightSessionRandom[FUZZ_LIGHT_SESSION_RANDOM_LEN] = { 0 };
-static const uint32_t FUZZ_LIGHT_SESSION_MAX_NUM = 30;
 
 typedef struct {
     DECLARE_TLV_STRUCT(2)
@@ -1234,81 +1227,6 @@ static void PseudonymDeleteTest001()
     (void)inst->deletePseudonymId(FUZZ_OS_ACCOUNT_ID, "fuzz_key");
 }
 
-/* ===== gap 4: mini_session (LightSession manager) ===== */
-static void InitFuzzLightSessionParams(LightSessionInitParams *params, DeviceAuthCallback *callback,
-    int64_t requestId)
-{
-    (void)memset_s(params, sizeof(*params), 0, sizeof(*params));
-    (void)memset_s(callback, sizeof(*callback), 0, sizeof(*callback));
-    params->requestId = requestId;
-    params->osAccountId = FUZZ_OS_ACCOUNT_ID;
-    params->opCode = FUZZ_LIGHT_SESSION_OP_CODE;
-    params->serviceId = "fuzz_service";
-    params->randomBuff.data = g_lightSessionRandom;
-    params->randomBuff.length = FUZZ_LIGHT_SESSION_RANDOM_LEN;
-    params->callback = callback;
-}
-
-/* AddLightSession guards null params/callback/serviceId and returns early
-   before touching g_lightSessionInfoList, so Init is not required here. */
-static void LightSessionNullParamTest001()
-{
-    (void)AddLightSession(nullptr);
-    LightSessionInitParams params;
-    DeviceAuthCallback callback;
-    InitFuzzLightSessionParams(&params, &callback, FUZZ_LIGHT_SESSION_REQ_ID);
-    params.callback = nullptr;
-    (void)AddLightSession(&params);
-    InitFuzzLightSessionParams(&params, &callback, FUZZ_LIGHT_SESSION_REQ_ID);
-    params.serviceId = nullptr;
-    (void)AddLightSession(&params);
-}
-
-static void LightSessionLifecycleTest001()
-{
-    if (InitLightSessionManager() != HC_SUCCESS) {
-        return;
-    }
-    LightSessionInitParams params;
-    DeviceAuthCallback callback;
-    InitFuzzLightSessionParams(&params, &callback, FUZZ_LIGHT_SESSION_REQ_ID);
-    if (AddLightSession(&params) != HC_SUCCESS) {
-        DestroyLightSessionManager();
-        return;
-    }
-    uint8_t *randomVal = nullptr;
-    uint32_t randomLen = 0;
-    char *serviceId = nullptr;
-    (void)QueryLightSession(FUZZ_LIGHT_SESSION_REQ_ID, FUZZ_OS_ACCOUNT_ID, &randomVal, &randomLen, &serviceId);
-    if (randomVal != nullptr) {
-        HcFree(randomVal);
-    }
-    if (serviceId != nullptr) {
-        HcFree(serviceId);
-    }
-    (void)QueryLightSession(FUZZ_LIGHT_SESSION_REQ_ID + 1, FUZZ_OS_ACCOUNT_ID, &randomVal, &randomLen, &serviceId);
-    (void)DeleteLightSession(FUZZ_LIGHT_SESSION_REQ_ID, FUZZ_OS_ACCOUNT_ID);
-    (void)DeleteLightSession(FUZZ_LIGHT_SESSION_REQ_ID + 1, FUZZ_OS_ACCOUNT_ID);
-    DestroyLightSessionManager();
-}
-
-/* Exercise the max-session-number limit branch; FUZZ_LIGHT_SESSION_MAX_NUM
-   mirrors MAX_SESSION_NUM_LIGHT_AUTH in mini_session_manager.c. */
-static void LightSessionAddLimitTest001()
-{
-    if (InitLightSessionManager() != HC_SUCCESS) {
-        return;
-    }
-    LightSessionInitParams params;
-    DeviceAuthCallback callback;
-    uint32_t index;
-    for (index = 0; index <= FUZZ_LIGHT_SESSION_MAX_NUM; ++index) {
-        InitFuzzLightSessionParams(&params, &callback, FUZZ_LIGHT_SESSION_REQ_ID + index);
-        (void)AddLightSession(&params);
-    }
-    DestroyLightSessionManager();
-}
-
 using TestFunc = void(*)(void);
 static TestFunc g_testFuncs[] = {
     HcParcelNullPtrTest001, HcParcelNullPtrTest002,
@@ -1340,8 +1258,6 @@ static TestFunc g_testFuncs[] = {
     MkAgreeTaskNullTest001, MkAgreeTaskProtocolTypeTest001, MkAgreeTaskPakeAttemptTest001,
     /* gap 3b: pseudonym */
     PseudonymNullParamTest001, PseudonymNormalQueryTest001, PseudonymDeleteTest001,
-    /* gap 4: mini_session */
-    LightSessionNullParamTest001, LightSessionLifecycleTest001, LightSessionAddLimitTest001,
 };
 constexpr size_t TEST_FUNC_COUNT = sizeof(g_testFuncs) / sizeof(g_testFuncs[0]);
 
