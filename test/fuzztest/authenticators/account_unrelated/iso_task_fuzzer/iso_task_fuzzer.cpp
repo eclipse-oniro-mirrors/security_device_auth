@@ -43,21 +43,78 @@ extern "C" int HiLogPrint(LogType type, LogLevel level, unsigned int domain,
     return 0;
 }
 
-/* iso_protocol_common.c is compiled for real (InitIsoBaseParams fills
-   baseParams + sets params->loader = GetLoaderInstance()). Stub
-   GetLoaderInstance to return a no-op AlgLoader so process() can be
-   invoked: the 9 loader functions the iso_task/protocol tree calls are
-   no-ops returning HC_ERROR, exercising process parsing + error paths
-   without real HUKS. */
-static int32_t StubGenerateRandom(Uint8Buff *rand) { (void)rand; return HC_SUCCESS; }
-static int32_t StubComputeHmac(const KeyParams *kp, const Uint8Buff *msg, Uint8Buff *out) { (void)kp; (void)msg; (void)out; return HC_SUCCESS; }
-static int32_t StubComputeHmac3(const KeyParams *kp, const Uint8Buff *msg, Uint8Buff *out) { (void)kp; (void)msg; (void)out; return HC_SUCCESS; }
-static int32_t StubComputeHkdf(const KeyParams *kp, const Uint8Buff *salt, const Uint8Buff *info, Uint8Buff *out) { (void)kp; (void)salt; (void)info; (void)out; return HC_SUCCESS; }
-static int32_t StubImportSymKey(const KeyParams *kp, const Uint8Buff *tok, KeyPurpose pur, const ExtraInfo *ex) { (void)kp; (void)tok; (void)pur; (void)ex; return HC_SUCCESS; }
-static int32_t StubDeleteKey(const Uint8Buff *alias, bool de, int32_t os) { (void)alias; (void)de; (void)os; return HC_SUCCESS; }
-static int32_t StubAesGcmEnc(const KeyParams *kp, const Uint8Buff *plain, const GcmParam *gi, Uint8Buff *out) { (void)kp; (void)plain; (void)gi; (void)out; return HC_SUCCESS; }
-static int32_t StubAesGcmDec(const KeyParams *kp, const Uint8Buff *cipher, const GcmParam *gi, Uint8Buff *out) { (void)kp; (void)cipher; (void)gi; (void)out; return HC_SUCCESS; }
-static int32_t StubSha256(const Uint8Buff *msg, Uint8Buff *hash) { (void)msg; (void)hash; return HC_SUCCESS; }
+/* Stub GetRealLoaderInstance to return a no-op AlgLoader so process() can
+   be invoked: the 9 loader functions the iso_task/protocol tree calls
+   return HC_SUCCESS, exercising process parsing + state branches without
+   real HUKS. */
+static int32_t StubGenerateRandom(Uint8Buff *rand)
+{
+    (void)rand;
+    return HC_SUCCESS;
+}
+static int32_t StubComputeHmac(const KeyParams *kp, const Uint8Buff *msg, Uint8Buff *out)
+{
+    (void)kp;
+    (void)msg;
+    (void)out;
+    return HC_SUCCESS;
+}
+static int32_t StubComputeHmac3(const KeyParams *kp, const Uint8Buff *msg, Uint8Buff *out)
+{
+    (void)kp;
+    (void)msg;
+    (void)out;
+    return HC_SUCCESS;
+}
+static int32_t StubComputeHkdf(const KeyParams *kp, const Uint8Buff *salt,
+    const Uint8Buff *info, Uint8Buff *out)
+{
+    (void)kp;
+    (void)salt;
+    (void)info;
+    (void)out;
+    return HC_SUCCESS;
+}
+static int32_t StubImportSymKey(const KeyParams *kp, const Uint8Buff *tok,
+    KeyPurpose pur, const ExtraInfo *ex)
+{
+    (void)kp;
+    (void)tok;
+    (void)pur;
+    (void)ex;
+    return HC_SUCCESS;
+}
+static int32_t StubDeleteKey(const Uint8Buff *alias, bool de, int32_t os)
+{
+    (void)alias;
+    (void)de;
+    (void)os;
+    return HC_SUCCESS;
+}
+static int32_t StubAesGcmEnc(const KeyParams *kp, const Uint8Buff *plain,
+    const GcmParam *gi, Uint8Buff *out)
+{
+    (void)kp;
+    (void)plain;
+    (void)gi;
+    (void)out;
+    return HC_SUCCESS;
+}
+static int32_t StubAesGcmDec(const KeyParams *kp, const Uint8Buff *cipher,
+    const GcmParam *gi, Uint8Buff *out)
+{
+    (void)kp;
+    (void)cipher;
+    (void)gi;
+    (void)out;
+    return HC_SUCCESS;
+}
+static int32_t StubSha256(const Uint8Buff *msg, Uint8Buff *hash)
+{
+    (void)msg;
+    (void)hash;
+    return HC_SUCCESS;
+}
 
 static AlgLoader g_stubLoader = {
     .sha256 = StubSha256,
@@ -76,13 +133,52 @@ extern "C" const AlgLoader *GetRealLoaderInstance(void) { return &g_stubLoader; 
    process() path). InitIsoBaseParams returns HC_SUCCESS so creation always
    proceeds; the process functions return 0 so Process() in iso_client/
    server_task.c steps through them. */
-extern "C" int32_t InitIsoBaseParams(const CJson *in, IsoBaseParams *params) { (void)in; (void)params; return HC_SUCCESS; }
-extern "C" void DestroyIsoBaseParams(IsoBaseParams *params) { (void)params; }
-extern "C" int IsoClientGenRandom(IsoBaseParams *params) { (void)params; return 0; }
-extern "C" int IsoClientGenSessionKey(IsoBaseParams *p, int r, const uint8_t *h, uint32_t l) { (void)p; (void)r; (void)h; (void)l; return 0; }
-extern "C" int IsoClientCheckAndGenToken(IsoBaseParams *p, const Uint8Buff *pt, Uint8Buff *st) { (void)p; (void)pt; (void)st; return 0; }
-extern "C" int IsoServerGenRandomAndToken(IsoBaseParams *p, Uint8Buff *st) { (void)p; (void)st; return 0; }
-extern "C" int IsoServerGenSessionKeyAndCalToken(IsoBaseParams *p, const Uint8Buff *tf, Uint8Buff *tt) { (void)p; (void)tf; (void)tt; return 0; }
+extern "C" int32_t InitIsoBaseParams(const CJson *in, IsoBaseParams *params)
+{
+    (void)in;
+    (void)params;
+    return HC_SUCCESS;
+}
+extern "C" void DestroyIsoBaseParams(IsoBaseParams *params)
+{
+    (void)params;
+}
+extern "C" int IsoClientGenRandom(IsoBaseParams *params)
+{
+    (void)params;
+    return 0;
+}
+extern "C" int IsoClientGenSessionKey(IsoBaseParams *p, int r,
+    const uint8_t *h, uint32_t l)
+{
+    (void)p;
+    (void)r;
+    (void)h;
+    (void)l;
+    return 0;
+}
+extern "C" int IsoClientCheckAndGenToken(IsoBaseParams *p,
+    const Uint8Buff *pt, Uint8Buff *st)
+{
+    (void)p;
+    (void)pt;
+    (void)st;
+    return 0;
+}
+extern "C" int IsoServerGenRandomAndToken(IsoBaseParams *p, Uint8Buff *st)
+{
+    (void)p;
+    (void)st;
+    return 0;
+}
+extern "C" int IsoServerGenSessionKeyAndCalToken(IsoBaseParams *p,
+    const Uint8Buff *tf, Uint8Buff *tt)
+{
+    (void)p;
+    (void)tf;
+    (void)tt;
+    return 0;
+}
 extern "C" int32_t GenerateKeyAlias(const TokenManagerParams *params, Uint8Buff *outKeyAlias)
 {
     (void)params;
