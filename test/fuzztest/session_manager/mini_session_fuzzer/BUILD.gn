@@ -30,6 +30,7 @@ ohos_fuzztest("MiniSessionFuzzTest") {
 
   include_dirs += [
     ".",
+    "./include",
     "${session_manager_path}/inc/session/mini_session",
     "${dev_frameworks_path}/inc/hiview_adapter",
   ]
@@ -60,8 +61,6 @@ ohos_fuzztest("MiniSessionFuzzTest") {
   external_deps = [
     "cJSON:cjson",
     "bounds_checking_function:libsec_shared",
-    "c_utils:utils",
-    "hilog:libhilog",
   ]
 }
 

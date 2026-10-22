@@ -22,6 +22,7 @@
 #include <fuzzer/FuzzedDataProvider.h>
 #include "common_defs.h"
 #include "device_auth.h"
+#include "hilog/log.h"
 #include "mini_session_manager.h"
 #include "securec.h"
 
@@ -38,6 +39,21 @@ extern "C" void ProcessErrorCallback(int64_t reqId, int operationCode, int error
     (void)errorCode;
     (void)errorReturn;
     (void)callback;
+}
+
+/* Stub the hilog entry so the fuzzer links without the libhilog external dep
+   (whose source recompilation trips the -fsanitize-minimal-runtime vs
+   -fsanitize=fuzzer-no-link conflict in this build env). LOGE/LOGI/LOGD all
+   expand to HiLogPrint; the no-op keeps the LightSession logic exercisable. */
+extern "C" int HiLogPrint(LogType type, LogLevel level, unsigned int domain,
+    const char *tag, const char *fmt, ...)
+{
+    (void)type;
+    (void)level;
+    (void)domain;
+    (void)tag;
+    (void)fmt;
+    return 0;
 }
 
 namespace OHOS {
