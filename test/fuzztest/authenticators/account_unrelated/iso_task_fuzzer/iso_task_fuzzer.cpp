@@ -60,6 +60,7 @@ static int32_t StubAesGcmDec(const KeyParams *kp, const Uint8Buff *cipher, const
 static int32_t StubSha256(const Uint8Buff *msg, Uint8Buff *hash) { (void)msg; (void)hash; return HC_SUCCESS; }
 
 static AlgLoader g_stubLoader = {
+    .sha256 = StubSha256,
     .generateRandom = StubGenerateRandom,
     .computeHmac = StubComputeHmac,
     .computeHmacWithThreeStage = StubComputeHmac3,
@@ -68,7 +69,6 @@ static AlgLoader g_stubLoader = {
     .deleteKey = StubDeleteKey,
     .aesGcmEncrypt = StubAesGcmEnc,
     .aesGcmDecrypt = StubAesGcmDec,
-    .sha256 = StubSha256,
 };
 extern "C" const AlgLoader *GetRealLoaderInstance(void) { return &g_stubLoader; }
 
