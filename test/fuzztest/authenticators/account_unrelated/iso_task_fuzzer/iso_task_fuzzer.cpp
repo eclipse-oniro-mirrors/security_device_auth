@@ -20,6 +20,7 @@
 #include <string>
 #include <fuzzer/FuzzedDataProvider.h>
 #include "common_defs.h"
+#include "alg_defs.h"
 #include "das_task_common.h"
 #include "device_auth.h"
 #include "hilog/log.h"
@@ -42,23 +43,46 @@ extern "C" int HiLogPrint(LogType type, LogLevel level, unsigned int domain,
     return 0;
 }
 
-/* The iso_task creation path reaches symbols defined outside the iso_task
-   tree (in das_task_common.c / iso_protocol_common.c / key_agree_sdk). To
-   keep this fuzzer link-light (no HUKS/creds/data/channel deps), stub them
-   as no-ops. InitIsoBaseParams returns HC_SUCCESS so CreateIsoSubTask ->
-   InitIsoParams proceeds through the Fill* parsing + CreateProtocolClientTask;
-   process() is never invoked, so the stubbed protocol/crypto helpers are not
-   called on the fuzzed path. */
-extern "C" int32_t InitIsoBaseParams(const CJson *in, IsoBaseParams *params)
-{
-    (void)in;
-    (void)params;
-    return HC_SUCCESS;
-}
-extern "C" void DestroyIsoBaseParams(IsoBaseParams *params)
-{
-    (void)params;
-}
+/* iso_protocol_common.c is compiled for real (InitIsoBaseParams fills
+   baseParams + sets params->loader = GetLoaderInstance()). Stub
+   GetLoaderInstance to return a no-op AlgLoader so process() can be
+   invoked: the 9 loader functions the iso_task/protocol tree calls are
+   no-ops returning HC_ERROR, exercising process parsing + error paths
+   without real HUKS. */
+static int32_t StubGenerateRandom(Uint8Buff *rand) { (void)rand; return HC_SUCCESS; }
+static int32_t StubComputeHmac(const KeyParams *kp, const Uint8Buff *msg, Uint8Buff *out) { (void)kp; (void)msg; (void)out; return HC_SUCCESS; }
+static int32_t StubComputeHmac3(const KeyParams *kp, const Uint8Buff *msg, Uint8Buff *out) { (void)kp; (void)msg; (void)out; return HC_SUCCESS; }
+static int32_t StubComputeHkdf(const KeyParams *kp, const Uint8Buff *salt, const Uint8Buff *info, Uint8Buff *out) { (void)kp; (void)salt; (void)info; (void)out; return HC_SUCCESS; }
+static int32_t StubImportSymKey(const KeyParams *kp, const Uint8Buff *tok, KeyPurpose pur, const ExtraInfo *ex) { (void)kp; (void)tok; (void)pur; (void)ex; return HC_SUCCESS; }
+static int32_t StubDeleteKey(const Uint8Buff *alias, bool de, int32_t os) { (void)alias; (void)de; (void)os; return HC_SUCCESS; }
+static int32_t StubAesGcmEnc(const KeyParams *kp, const Uint8Buff *plain, const GcmParam *gi, Uint8Buff *out) { (void)kp; (void)plain; (void)gi; (void)out; return HC_SUCCESS; }
+static int32_t StubAesGcmDec(const KeyParams *kp, const Uint8Buff *cipher, const GcmParam *gi, Uint8Buff *out) { (void)kp; (void)cipher; (void)gi; (void)out; return HC_SUCCESS; }
+static int32_t StubSha256(const Uint8Buff *msg, Uint8Buff *hash) { (void)msg; (void)hash; return HC_SUCCESS; }
+
+static AlgLoader g_stubLoader = {
+    .generateRandom = StubGenerateRandom,
+    .computeHmac = StubComputeHmac,
+    .computeHmacWithThreeStage = StubComputeHmac3,
+    .computeHkdf = StubComputeHkdf,
+    .importSymmetricKey = StubImportSymKey,
+    .deleteKey = StubDeleteKey,
+    .aesGcmEncrypt = StubAesGcmEnc,
+    .aesGcmDecrypt = StubAesGcmDec,
+    .sha256 = StubSha256,
+};
+extern "C" const AlgLoader *GetRealLoaderInstance(void) { return &g_stubLoader; }
+
+/* Stub the iso_protocol_common.c functions (not compiled; only reached on
+   process() path). InitIsoBaseParams returns HC_SUCCESS so creation always
+   proceeds; the process functions return 0 so Process() in iso_client/
+   server_task.c steps through them. */
+extern "C" int32_t InitIsoBaseParams(const CJson *in, IsoBaseParams *params) { (void)in; (void)params; return HC_SUCCESS; }
+extern "C" void DestroyIsoBaseParams(IsoBaseParams *params) { (void)params; }
+extern "C" int IsoClientGenRandom(IsoBaseParams *params) { (void)params; return 0; }
+extern "C" int IsoClientGenSessionKey(IsoBaseParams *p, int r, const uint8_t *h, uint32_t l) { (void)p; (void)r; (void)h; (void)l; return 0; }
+extern "C" int IsoClientCheckAndGenToken(IsoBaseParams *p, const Uint8Buff *pt, Uint8Buff *st) { (void)p; (void)pt; (void)st; return 0; }
+extern "C" int IsoServerGenRandomAndToken(IsoBaseParams *p, Uint8Buff *st) { (void)p; (void)st; return 0; }
+extern "C" int IsoServerGenSessionKeyAndCalToken(IsoBaseParams *p, const Uint8Buff *tf, Uint8Buff *tt) { (void)p; (void)tf; (void)tt; return 0; }
 extern "C" int32_t GenerateKeyAlias(const TokenManagerParams *params, Uint8Buff *outKeyAlias)
 {
     (void)params;
@@ -84,35 +108,13 @@ extern "C" int ClientProtocolMessageOut(CJson *out, int opCode, uint32_t step)
     (void)step;
     return 0;
 }
-extern "C" int IsoClientGenRandom(IsoBaseParams *params)
-{
-    (void)params;
-    return 0;
-}
 extern "C" void FreeAndCleanKey(Uint8Buff *key)
 {
     (void)key;
 }
 
-/* Additional protocol/message helpers defined in iso_protocol_common.c /
-   das_task_common.c, referenced by iso_client/server_protocol_task.c. They
-   are only reached on the process() path, which the fuzzer does not invoke;
-   stubbed as no-ops to satisfy the link. */
-extern "C" int IsoClientGenSessionKey(IsoBaseParams *params, int returnResult, const uint8_t *hmac, uint32_t hmacLen)
-{
-    (void)params;
-    (void)returnResult;
-    (void)hmac;
-    (void)hmacLen;
-    return 0;
-}
-extern "C" int IsoClientCheckAndGenToken(IsoBaseParams *params, const Uint8Buff *peerToken, Uint8Buff *selfToken)
-{
-    (void)params;
-    (void)peerToken;
-    (void)selfToken;
-    return 0;
-}
+/* das_task_common.c / key_agree_sdk symbols not compiled; stubbed for link.
+   Only reached on process() paths (now invoked). */
 extern "C" int ServerProtocolMessageOut(CJson *out, int opCode, uint32_t step)
 {
     (void)out;
@@ -120,24 +122,11 @@ extern "C" int ServerProtocolMessageOut(CJson *out, int opCode, uint32_t step)
     (void)step;
     return 0;
 }
-extern "C" int IsoServerGenSessionKeyAndCalToken(IsoBaseParams *params, const Uint8Buff *tokenFromPeer, Uint8Buff *tokenToPeer)
-{
-    (void)params;
-    (void)tokenFromPeer;
-    (void)tokenToPeer;
-    return 0;
-}
 extern "C" int32_t GetAndCheckKeyLenOnServer(const CJson *in, uint32_t keyLen)
 {
     (void)in;
     (void)keyLen;
     return HC_SUCCESS;
-}
-extern "C" int IsoServerGenRandomAndToken(IsoBaseParams *params, Uint8Buff *selfTokenBuf)
-{
-    (void)params;
-    (void)selfTokenBuf;
-    return 0;
 }
 extern "C" int32_t GetAndCheckAuthIdPeer(const CJson *in, const Uint8Buff *authIdSelf, const Uint8Buff *authIdPeer)
 {
@@ -192,6 +181,12 @@ static void IsoTaskCreateFuzzTest001(FuzzedDataProvider &fdp)
     SubTaskBase *task = CreateIsoSubTask(in);
     if (task != nullptr) {
         (void)task->getTaskType(task);
+        CJson *out = CreateJson();
+        if (out != nullptr) {
+            int32_t status = 0;
+            (void)task->process(task, in, out, &status);
+            FreeJson(out);
+        }
         task->destroyTask(task);
     }
     FreeJson(in);
