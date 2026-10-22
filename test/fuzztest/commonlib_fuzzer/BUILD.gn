@@ -37,6 +37,7 @@ ohos_fuzztest("CommonLibFuzzTest") {
     "${dev_frameworks_path}/inc/hiview_adapter",
     "${mk_agree_path}/inc",
     "${cred_data_manager_path}/inc",
+    "${session_manager_path}/inc/session/mini_session",
   ]
   include_dirs += identity_manager_inc
 
@@ -62,6 +63,11 @@ ohos_fuzztest("CommonLibFuzzTest") {
     # persistence; pull it in so the fuzzer can exercise its parse/encode
     # branches (it is otherwise only reached via identity_service_files).
     "${cred_data_manager_path}/src/cred_tlv_parser.c",
+    # mini_session_manager.c is gated by enable_session_mini and only built
+    # for mini OS level by default; pull the real impl in so the fuzzer can
+    # exercise the LightSession manager (Init/Add/Query/Delete) regardless
+    # of the product's OS level.
+    "${session_manager_path}/src/session/mini_session/mini_session_manager.c",
   ]
   sources += identity_manager_files
   sources += identity_service_mock_files
