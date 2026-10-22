@@ -1229,6 +1229,13 @@ static void PseudonymDeleteTest001()
 }
 
 /* ===== gap 5: iso_task (account_unrelated P2P auth sub-task) ===== */
+/* iso_task's full dep closure (das_task_common + iso_protocol_common +
+   key_agree_sdk + creds/data + HUKS AlgLoader) is too heavy for a standalone
+   device-testable fuzzer (unlike mini_session); these creation-path cases
+   live in commonlib_fuzzer, which already compiles the iso_task sources +
+   has the real AlgLoader. process() is not invoked (it derefs the loader
+   set by the caller); only CreateIsoSubTask + getTaskType + destroyTask,
+   exercising the InitIsoParams parsing + validation branches. */
 static const char *FUZZ_ISO_AUTH_ID_SELF = "AABBCCDDEEFF00112233445566778899";
 static const char *FUZZ_ISO_AUTH_ID_PEER = "99887766554433221100FFEEDDCCBBAA";
 static const char *FUZZ_ISO_PKG_NAME = "fuzz_pkg";
@@ -1236,11 +1243,8 @@ static const char *FUZZ_ISO_SERVICE_TYPE = "fuzz_svc";
 static const char *FUZZ_ISO_PIN_CODE = "12345678";
 static const int32_t FUZZ_ISO_KEY_LEN = 16;
 static const int32_t FUZZ_ISO_DEFAULT_USER_TYPE = 0;
-static const int32_t FUZZ_ISO_INVALID_OP_CODE = 0;  /* not OP_BIND/AUTHENTICATE/OP_UNBIND */
+static const int32_t FUZZ_ISO_INVALID_OP_CODE = 0;
 
-/* Build a best-effort full iso_task creation JSON. Even if some Fill* steps
-   reject the values, every GetXxxFromJson + validation branch in
-   InitIsoParams is still exercised. */
 static void BuildIsoTaskJson(CJson *in, bool isClient, int32_t opCode)
 {
     (void)AddBoolToJson(in, FIELD_IS_CLIENT, isClient);
@@ -1255,8 +1259,6 @@ static void BuildIsoTaskJson(CJson *in, bool isClient, int32_t opCode)
     (void)AddStringToJson(in, FIELD_PIN_CODE, FUZZ_ISO_PIN_CODE);
 }
 
-/* CreateIsoSubTask guards null/missing-isClient at the top; InitIsoParams then
-   parses opCode/isClient/baseParams. nullptr + empty JSON hit those guards. */
 static void IsoTaskCreateNullTest001()
 {
     (void)CreateIsoSubTask(nullptr);
@@ -1278,12 +1280,6 @@ static void IsoTaskCreateClientTest001()
     SubTaskBase *task = CreateIsoSubTask(in);
     if (task != nullptr) {
         (void)task->getTaskType(task);
-        CJson *out = CreateJson();
-        if (out != nullptr) {
-            int32_t status = 0;
-            (void)task->process(task, in, out, &status);
-            FreeJson(out);
-        }
         task->destroyTask(task);
     }
     FreeJson(in);
@@ -1304,8 +1300,6 @@ static void IsoTaskCreateServerTest001()
     FreeJson(in);
 }
 
-/* Exercise the opCode validation branch (default on missing, and the
-   OP_BIND/AUTHENTICATE/OP_UNBIND/invalid acceptance). */
 static void IsoTaskCreateOpCodeTest001()
 {
     int32_t opCodes[] = { OP_BIND, AUTHENTICATE, OP_UNBIND, FUZZ_ISO_INVALID_OP_CODE };
