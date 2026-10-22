@@ -25,7 +25,6 @@
 #include "operation_data_manager.h"
 #include "mk_agree_task.h"
 #include "pseudonym_manager.h"
-#include "iso_task_main.h"
 #include "device_auth.h"
 #include "account_module_defines.h"
 #include <cstdint>
@@ -1228,96 +1227,6 @@ static void PseudonymDeleteTest001()
     (void)inst->deletePseudonymId(FUZZ_OS_ACCOUNT_ID, "fuzz_key");
 }
 
-/* ===== gap 5: iso_task (account_unrelated P2P auth sub-task) ===== */
-/* iso_task's full dep closure (das_task_common + iso_protocol_common +
-   key_agree_sdk + creds/data + HUKS AlgLoader) is too heavy for a standalone
-   device-testable fuzzer (unlike mini_session); these creation-path cases
-   live in commonlib_fuzzer, which already compiles the iso_task sources +
-   has the real AlgLoader. process() is not invoked (it derefs the loader
-   set by the caller); only CreateIsoSubTask + getTaskType + destroyTask,
-   exercising the InitIsoParams parsing + validation branches. */
-static const char *FUZZ_ISO_AUTH_ID_SELF = "AABBCCDDEEFF00112233445566778899";
-static const char *FUZZ_ISO_AUTH_ID_PEER = "99887766554433221100FFEEDDCCBBAA";
-static const char *FUZZ_ISO_PKG_NAME = "fuzz_pkg";
-static const char *FUZZ_ISO_SERVICE_TYPE = "fuzz_svc";
-static const char *FUZZ_ISO_PIN_CODE = "12345678";
-static const int32_t FUZZ_ISO_KEY_LEN = 16;
-static const int32_t FUZZ_ISO_DEFAULT_USER_TYPE = 0;
-static const int32_t FUZZ_ISO_INVALID_OP_CODE = 0;
-
-static void BuildIsoTaskJson(CJson *in, bool isClient, int32_t opCode)
-{
-    (void)AddBoolToJson(in, FIELD_IS_CLIENT, isClient);
-    (void)AddIntToJson(in, FIELD_OPERATION_CODE, opCode);
-    (void)AddStringToJson(in, FIELD_SELF_AUTH_ID, FUZZ_ISO_AUTH_ID_SELF);
-    (void)AddStringToJson(in, FIELD_PEER_AUTH_ID, FUZZ_ISO_AUTH_ID_PEER);
-    (void)AddStringToJson(in, FIELD_PKG_NAME, FUZZ_ISO_PKG_NAME);
-    (void)AddStringToJson(in, FIELD_SERVICE_TYPE, FUZZ_ISO_SERVICE_TYPE);
-    (void)AddIntToJson(in, FIELD_SELF_TYPE, FUZZ_ISO_DEFAULT_USER_TYPE);
-    (void)AddIntToJson(in, FIELD_PEER_USER_TYPE, FUZZ_ISO_DEFAULT_USER_TYPE);
-    (void)AddIntToJson(in, FIELD_KEY_LENGTH, FUZZ_ISO_KEY_LEN);
-    (void)AddStringToJson(in, FIELD_PIN_CODE, FUZZ_ISO_PIN_CODE);
-}
-
-static void IsoTaskCreateNullTest001()
-{
-    (void)CreateIsoSubTask(nullptr);
-    CJson *in = CreateJson();
-    if (in == nullptr) {
-        return;
-    }
-    (void)CreateIsoSubTask(in);
-    FreeJson(in);
-}
-
-static void IsoTaskCreateClientTest001()
-{
-    CJson *in = CreateJson();
-    if (in == nullptr) {
-        return;
-    }
-    BuildIsoTaskJson(in, true, AUTHENTICATE);
-    SubTaskBase *task = CreateIsoSubTask(in);
-    if (task != nullptr) {
-        (void)task->getTaskType(task);
-        task->destroyTask(task);
-    }
-    FreeJson(in);
-}
-
-static void IsoTaskCreateServerTest001()
-{
-    CJson *in = CreateJson();
-    if (in == nullptr) {
-        return;
-    }
-    BuildIsoTaskJson(in, false, AUTHENTICATE);
-    SubTaskBase *task = CreateIsoSubTask(in);
-    if (task != nullptr) {
-        (void)task->getTaskType(task);
-        task->destroyTask(task);
-    }
-    FreeJson(in);
-}
-
-static void IsoTaskCreateOpCodeTest001()
-{
-    int32_t opCodes[] = { OP_BIND, AUTHENTICATE, OP_UNBIND, FUZZ_ISO_INVALID_OP_CODE };
-    uint32_t count = sizeof(opCodes) / sizeof(opCodes[0]);
-    for (uint32_t i = 0; i < count; ++i) {
-        CJson *in = CreateJson();
-        if (in == nullptr) {
-            continue;
-        }
-        BuildIsoTaskJson(in, true, opCodes[i]);
-        SubTaskBase *task = CreateIsoSubTask(in);
-        if (task != nullptr) {
-            task->destroyTask(task);
-        }
-        FreeJson(in);
-    }
-}
-
 using TestFunc = void(*)(void);
 static TestFunc g_testFuncs[] = {
     HcParcelNullPtrTest001, HcParcelNullPtrTest002,
@@ -1349,9 +1258,6 @@ static TestFunc g_testFuncs[] = {
     MkAgreeTaskNullTest001, MkAgreeTaskProtocolTypeTest001, MkAgreeTaskPakeAttemptTest001,
     /* gap 3b: pseudonym */
     PseudonymNullParamTest001, PseudonymNormalQueryTest001, PseudonymDeleteTest001,
-    /* gap 5: iso_task */
-    IsoTaskCreateNullTest001, IsoTaskCreateClientTest001, IsoTaskCreateServerTest001,
-    IsoTaskCreateOpCodeTest001,
 };
 constexpr size_t TEST_FUNC_COUNT = sizeof(g_testFuncs) / sizeof(g_testFuncs[0]);
 

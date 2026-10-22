@@ -1,0 +1,88 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//base/security/device_auth/deps_adapter/deviceauth_hals.gni")
+import("//base/security/device_auth/services/deviceauth.gni")
+
+#####################hydra-fuzz###################
+import("//build/config/features.gni")
+import("//build/ohos.gni")
+import("//build/test.gni")
+module_output_path = "device_auth/device_auth"
+
+##############################fuzztest##########################################
+ohos_fuzztest("IsoTaskFuzzTest") {
+  module_out_path = module_output_path
+  fuzz_config_file = "${deviceauth_path}/test/fuzztest/authenticators/account_unrelated/iso_task_fuzzer"
+
+  include_dirs = inc_path
+  include_dirs += hals_inc_path
+  include_dirs += identity_manager_inc
+
+  include_dirs += [
+    ".",
+    "./include",
+    "${dev_frameworks_path}/inc/hiview_adapter",
+  ]
+
+  sources = hal_common_files
+  sources += [
+    "${os_adapter_path}/impl/src/hc_err_trace.c",
+    "${os_adapter_path}/impl/src/hc_log.c",
+    "${os_adapter_path}/impl/src/linux/hc_file.c",
+  ]
+
+  # The 8 account_unrelated iso_task sources. das_lite_token_manager.c,
+  # das_task_common.c, iso_protocol_common.c and key_agree_session.c are NOT
+  # compiled -- the symbols the iso_task creation path reaches in them
+  # (InitIsoBaseParams, GenerateKeyAlias, ProtocolMessageIn,
+  # GetAuthIdPeerFromPayload, ClientProtocolMessageOut, IsoClientGenRandom,
+  # DestroyIsoBaseParams, FreeAndCleanKey) are stubbed as no-ops in
+  # iso_task_fuzzer.cpp, keeping the target link-light (no HUKS/creds/data
+  # deps). process() is not invoked (the loader is caller-set), so only the
+  # creation/parsing/destroy path is fuzzed.
+  sources += [
+    "${authenticators_path}/src/account_unrelated/iso_task/iso_client_task.c",
+    "${authenticators_path}/src/account_unrelated/iso_task/iso_server_task.c",
+    "${authenticators_path}/src/account_unrelated/iso_task/iso_task_common/iso_task_common.c",
+    "${authenticators_path}/src/account_unrelated/iso_task/iso_task_main.c",
+    "${authenticators_path}/src/account_unrelated/iso_task/iso_protocol_task/iso_client_protocol_task.c",
+    "${authenticators_path}/src/account_unrelated/iso_task/iso_protocol_task/iso_server_protocol_task.c",
+    "${authenticators_path}/src/account_unrelated/iso_task/lite_exchange_task/iso_client_bind_exchange_task.c",
+    "${authenticators_path}/src/account_unrelated/iso_task/lite_exchange_task/iso_server_bind_exchange_task.c",
+  ]
+
+  sources += [ "iso_task_fuzzer.cpp" ]
+
+  defines = [
+    "HILOG_ENABLE",
+  ]
+
+  cflags = [ "-DHILOG_ENABLE" ]
+
+  external_deps = [
+    "cJSON:cjson",
+    "bounds_checking_function:libsec_shared",
+  ]
+}
+
+###############################################################################
+group("fuzztest") {
+  testonly = true
+  deps = []
+  deps += [
+    # deps file
+    ":IsoTaskFuzzTest",
+  ]
+}
+###############################################################################

@@ -49,6 +49,7 @@ group("deviceauth_test_build") {
   if (use_libfuzzer) {
     deps += [
       "fuzztest/authenticators/account_related/auth/isoauthtask_fuzzer:fuzztest",
+      "fuzztest/authenticators/account_unrelated/iso_task_fuzzer:fuzztest",
       "fuzztest/authenticators/account_related/auth/pakeauthtask_fuzzer:fuzztest",
       "fuzztest/authenticators/account_unrelated/pake/standardexchangetask_fuzzer:fuzztest",
       "fuzztest/creds_manager/credsmanager_fuzzer:fuzztest",
