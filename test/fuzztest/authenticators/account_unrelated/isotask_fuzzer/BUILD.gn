@@ -23,7 +23,7 @@ module_output_path = "device_auth/device_auth"
 ##############################fuzztest##########################################
 ohos_fuzztest("IsoTaskFuzzTest") {
   module_out_path = module_output_path
-  fuzz_config_file = "${deviceauth_path}/test/fuzztest/authenticators/account_unrelated/iso_task_fuzzer"
+  fuzz_config_file = "${deviceauth_path}/test/fuzztest/authenticators/account_unrelated/isotask_fuzzer"
 
   include_dirs = inc_path
   include_dirs += hals_inc_path
