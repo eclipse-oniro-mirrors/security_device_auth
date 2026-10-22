@@ -49,7 +49,7 @@ group("deviceauth_test_build") {
   if (use_libfuzzer) {
     deps += [
       "fuzztest/authenticators/account_related/auth/isoauthtask_fuzzer:fuzztest",
-      "fuzztest/authenticators/account_unrelated/iso_task_fuzzer:fuzztest",
+      "fuzztest/authenticators/account_unrelated/isotask_fuzzer:fuzztest",
       "fuzztest/authenticators/account_related/auth/pakeauthtask_fuzzer:fuzztest",
       "fuzztest/authenticators/account_unrelated/pake/standardexchangetask_fuzzer:fuzztest",
       "fuzztest/creds_manager/credsmanager_fuzzer:fuzztest",
@@ -93,7 +93,7 @@ group("deviceauth_test_build") {
       "fuzztest/protocol/dlspeke_fuzzer:fuzztest",
       "fuzztest/protocol/ecspeke_fuzzer:fuzztest",
       "fuzztest/protocol/iso_fuzzer:fuzztest",
-      "fuzztest/session_manager/mini_session_fuzzer:fuzztest",
+      "fuzztest/session_manager/minisession_fuzzer:fuzztest",
       "fuzztest/session_manager/session/v2/auth_sub_session/authsubsession_fuzzer:fuzztest",
       "fuzztest/session_manager/session/v2/expand_sub_session/expand_process_lib/authcodeimport_fuzzer:fuzztest",
       "fuzztest/session_manager/session/v2/expand_sub_session/expand_process_lib/pubkeyexchange_fuzzer:fuzztest",
