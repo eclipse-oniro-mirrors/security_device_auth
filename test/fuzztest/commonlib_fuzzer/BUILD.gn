@@ -35,6 +35,8 @@ ohos_fuzztest("CommonLibFuzzTest") {
     "../../unittest/deviceauth/include",
     "${dev_frameworks_path}/inc/permission_adapter",
     "${dev_frameworks_path}/inc/hiview_adapter",
+    "${mk_agree_path}/inc",
+    "${cred_data_manager_path}/inc",
   ]
   include_dirs += identity_manager_inc
 
@@ -55,6 +57,12 @@ ohos_fuzztest("CommonLibFuzzTest") {
     "../../unittest/deviceauth/source/hc_dev_info_mock.c",
   ]
   sources += [ "commonlib_fuzzer.cpp" ]
+  sources += [
+    # cred_tlv_parser.c is a parallel TLV parser used by credential data
+    # persistence; pull it in so the fuzzer can exercise its parse/encode
+    # branches (it is otherwise only reached via identity_service_files).
+    "${cred_data_manager_path}/src/cred_tlv_parser.c",
+  ]
   sources += identity_manager_files
   sources += identity_service_mock_files
   sources += dev_frameworks_files

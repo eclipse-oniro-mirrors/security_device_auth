@@ -1,0 +1,76 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//base/security/device_auth/deps_adapter/deviceauth_hals.gni")
+import("//base/security/device_auth/services/deviceauth.gni")
+
+#####################hydra-fuzz###################
+import("//build/config/features.gni")
+import("//build/ohos.gni")
+import("//build/test.gni")
+module_output_path = "device_auth/device_auth"
+
+##############################fuzztest##########################################
+ohos_fuzztest("MiniSessionFuzzTest") {
+  module_out_path = module_output_path
+  fuzz_config_file = "${deviceauth_path}/test/fuzztest/session_manager/minisession_fuzzer"
+
+  include_dirs = inc_path
+  include_dirs += hals_inc_path
+
+  include_dirs += [
+    ".",
+    "./include",
+    "${session_manager_path}/inc/session/mini_session",
+    "${dev_frameworks_path}/inc/hiview_adapter",
+  ]
+
+  # Real common_lib (hc_string/hc_string_vector/hc_parcel/hc_tlv_parser/
+  # json_utils/string_util/uint8buff_utils/hc_mutex/hc_time/hc_types) gives
+  # real behaviour for the LightSession manager without gmock mocks.
+  sources = hal_common_files
+  sources += [
+    "${os_adapter_path}/impl/src/hc_err_trace.c",
+    "${os_adapter_path}/impl/src/hc_log.c",
+    "${os_adapter_path}/impl/src/linux/hc_file.c",
+    # mini_session_manager.c is gated by enable_session_mini and only built
+    # for mini OS level by default; pull the real impl in so the fuzzer
+    # exercises the LightSession manager (Init/Add/Query/Delete) regardless
+    # of the product's OS level.
+    "${session_manager_path}/src/session/mini_session/mini_session_manager.c",
+  ]
+
+  sources += [ "mini_session_fuzzer.cpp" ]
+
+  defines = [
+    "HILOG_ENABLE",
+  ]
+
+  cflags = [ "-DHILOG_ENABLE" ]
+
+  external_deps = [
+    "cJSON:cjson",
+    "bounds_checking_function:libsec_shared",
+  ]
+}
+
+###############################################################################
+group("fuzztest") {
+  testonly = true
+  deps = []
+  deps += [
+    # deps file
+    ":MiniSessionFuzzTest",
+  ]
+}
+###############################################################################

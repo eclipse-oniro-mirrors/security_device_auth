@@ -78,4 +78,58 @@ HWTEST_F(GroupDataManagerTest, DelGroupTEST001, TestSize.Level0)
     ClearGroupEntryVec(&vec);
     DestroyGroupEntry(entry);
 }
+
+/* Cover the NULL-guard branches added to the group entry copy/generate
+ * functions (discovered by commonlib_fuzzer); also assert the happy path
+ * is unchanged. */
+HWTEST_F(GroupDataManagerTest, GenerateGroupEntryFromEntryNullParam001, TestSize.Level0)
+{
+    EXPECT_FALSE(GenerateGroupEntryFromEntry(nullptr, nullptr));
+    TrustedGroupEntry *src = generateTestGroupEntry();
+    ASSERT_NE(src, nullptr);
+    EXPECT_FALSE(GenerateGroupEntryFromEntry(nullptr, src));
+    EXPECT_FALSE(GenerateGroupEntryFromEntry(src, nullptr));
+    DestroyGroupEntry(src);
+}
+
+HWTEST_F(GroupDataManagerTest, GenerateGroupEntryFromEntryValid001, TestSize.Level0)
+{
+    TrustedGroupEntry *src = generateTestGroupEntry();
+    ASSERT_NE(src, nullptr);
+    TrustedGroupEntry *dst = CreateGroupEntry();
+    ASSERT_NE(dst, nullptr);
+    EXPECT_TRUE(GenerateGroupEntryFromEntry(src, dst));
+    EXPECT_STREQ(StringGet(&dst->id), TEST_GROUP_ID);
+    EXPECT_EQ(dst->type, src->type);
+    DestroyGroupEntry(src);
+    DestroyGroupEntry(dst);
+}
+
+HWTEST_F(GroupDataManagerTest, DeepCopyGroupEntryNullParam001, TestSize.Level0)
+{
+    EXPECT_EQ(DeepCopyGroupEntry(nullptr), nullptr);
+}
+
+HWTEST_F(GroupDataManagerTest, DeepCopyGroupEntryValid001, TestSize.Level0)
+{
+    TrustedGroupEntry *src = generateTestGroupEntry();
+    ASSERT_NE(src, nullptr);
+    TrustedGroupEntry *copy = DeepCopyGroupEntry(src);
+    EXPECT_NE(copy, nullptr);
+    if (copy != nullptr) {
+        EXPECT_STREQ(StringGet(&copy->id), TEST_GROUP_ID);
+        DestroyGroupEntry(copy);
+    }
+    DestroyGroupEntry(src);
+}
+
+HWTEST_F(GroupDataManagerTest, GenerateDeviceEntryFromEntryNullParam001, TestSize.Level0)
+{
+    EXPECT_FALSE(GenerateDeviceEntryFromEntry(nullptr, nullptr));
+    TrustedDeviceEntry *src = CreateDeviceEntry();
+    ASSERT_NE(src, nullptr);
+    EXPECT_FALSE(GenerateDeviceEntryFromEntry(nullptr, src));
+    EXPECT_FALSE(GenerateDeviceEntryFromEntry(src, nullptr));
+    DestroyDeviceEntry(src);
+}
 }
