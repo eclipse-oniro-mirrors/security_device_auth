@@ -65,7 +65,6 @@ static const uint32_t FUZZ_UINT32_VAL_A = 0x11111111;
 static const uint32_t FUZZ_UINT32_VAL_B = 0x22222222;
 static const uint32_t FUZZ_RECORD_BUF_SIZE = 256;
 static const int32_t FUZZ_OS_ACCOUNT_ID = 100;
-static const uint32_t FUZZ_OPERATION_TYPE = 2;
 /* TLV wire node sizes (tag + length + data); used to compute struct root lengths */
 static const uint16_t FUZZ_TLV_UINT32_NODE_LEN =
     sizeof(uint16_t) + sizeof(uint16_t) + sizeof(uint32_t);     /* hc TlvUint32 = 8 */
@@ -81,7 +80,7 @@ static const uint32_t FUZZ_CRED_TLV_STRUCT_LEN_THREE_NODES = 3 * FUZZ_CRED_TLV_U
 static const uint32_t FUZZ_TLV_BUFFER_DECLARED_LEN = 10;
 /* mk_agree protocol type that is neither TASK_TYPE_ISO nor TASK_TYPE_PAKE,
    used to exercise the default (invalid) branch of CreateMkAgreeTask */
-static const int32_t FUZZ_MK_AGREE_INVALID_PROTOCOL_TYPE = 99;
+
 
 typedef struct {
     DECLARE_TLV_STRUCT(2)
@@ -127,8 +126,9 @@ static void InitFuzzCredTlvStruct(FuzzCredTlvStruct *tlv, unsigned short checkTa
     tlv->base.deinit = DeinitCredTlvStruct;
 }
 
-static void HcParcelNullPtrTest001()
+static void HcParcelNullPtrTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     HcParcel *parcelNull = nullptr;
     ClearParcel(parcelNull);
     ResetParcel(parcelNull, 1, 1);
@@ -149,8 +149,9 @@ static void HcParcelNullPtrTest001()
     (void)ParcelReadParcel(&parcel, parcelNull, 0, HC_TRUE);
 }
 
-static void HcParcelNullPtrTest002()
+static void HcParcelNullPtrTest002(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     HcParcel *parcelNull = nullptr;
     HcParcel parcel;
     (void)GetParcelIncreaseSize(parcelNull, 1);
@@ -158,8 +159,9 @@ static void HcParcelNullPtrTest002()
     (void)GetParcelIncreaseSize(&parcel, 1);
 }
 
-static void HcParcelInValidDataSizeTest001()
+static void HcParcelInValidDataSizeTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     HcParcel parcel;
     parcel.beginPos = PARCEL_POS_1;
     parcel.endPos = PARCEL_POS_0;
@@ -171,8 +173,9 @@ static void HcParcelInValidDataSizeTest001()
     ParcelRecycle(&parcel);
 }
 
-static void HcParcelInValidDataSizeTest002()
+static void HcParcelInValidDataSizeTest002(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     HcParcel parcel;
     uint32_t data = 1;
     (void)ParcelEraseBlock(&parcel, 1, 0, &data);
@@ -183,8 +186,9 @@ static void HcParcelInValidDataSizeTest002()
     (void)ParcelIncrease(&parcel, 1);
 }
 
-static void HcParcelReadRevertTest001()
+static void HcParcelReadRevertTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE, TEST_BUFFER_SIZE);
     HcParcel *parcelNull = nullptr;
     int32_t int32Dst = 0;
@@ -206,8 +210,9 @@ static void HcParcelReadRevertTest001()
     DeleteParcel(&parcel);
 }
 
-static void HcParcelCreateTest001()
+static void HcParcelCreateTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     HcParcel parcelNullData = CreateParcel(TEST_INVALID_BUFFER_SIZE, PARCEL_DEFAULT_ALLOC_UNIT);
     HcParcel parcelWithData = CreateParcel(TEST_BUFFER_SIZE, PARCEL_DEFAULT_ALLOC_UNIT);
     ParcelWriteUint32(&parcelWithData, TEST_SRC_DATA);
@@ -224,8 +229,9 @@ static void HcParcelCreateTest001()
     DeleteParcel(&parcelWithData);
 }
 
-static void HcParcelReadTest001()
+static void HcParcelReadTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     uint32_t num = 0;
     uint32_t uintDataSize = sizeof(uint32_t);
     HcParcel parcelWithData = CreateParcel(TEST_BUFFER_SIZE, TEST_BUFFER_SIZE);
@@ -241,8 +247,9 @@ static void HcParcelReadTest001()
     DeleteParcel(&parcelWithData);
 }
 
-static void HcParcelEraseBlockTest001()
+static void HcParcelEraseBlockTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     uint32_t start = 0;
     uint32_t num = 0;
     uint32_t uintDataSize = sizeof(uint32_t);
@@ -255,8 +262,9 @@ static void HcParcelEraseBlockTest001()
     DeleteParcel(&parcelWithData);
 }
 
-static void HcParcelRevertTest001()
+static void HcParcelRevertTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     uint32_t num = 0;
     uint32_t uintDataSize = sizeof(uint32_t);
     HcParcel parcelWithData = CreateParcel(TEST_BUFFER_SIZE, TEST_BUFFER_SIZE);
@@ -267,8 +275,9 @@ static void HcParcelRevertTest001()
     DeleteParcel(&parcelWithData);
 }
 
-static void HcParcelReadWrite001()
+static void HcParcelReadWrite001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     HcParcel parcelWithData = CreateParcel(TEST_BUFFER_SIZE, TEST_BUFFER_SIZE);
     int32_t srcInt = 0;
     int32_t dstInt = 0;
@@ -305,8 +314,9 @@ static void HcParcelReadWrite001()
     DeleteParcel(&parcelWithData);
 }
 
-static void HcParcelRealloc001()
+static void HcParcelRealloc001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     HcParcel parcelSrc = CreateParcel(TEST_BUFFER_SIZE, TEST_BUFFER_SIZE);
     HcParcel parcelDst = CreateParcel(TEST_BUFFER_SIZE, TEST_BUFFER_SIZE);
     (void)ParcelWriteInt32(&parcelSrc, TEST_SRC_DATA);
@@ -322,8 +332,9 @@ static void HcParcelRealloc001()
     DeleteParcel(&parcelDst);
 }
 
-static void HcParcelCopy001()
+static void HcParcelCopy001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     HcParcel parcelSrc = CreateParcel(TEST_BUFFER_SIZE, TEST_BUFFER_SIZE);
     HcParcel parcelDst = CreateParcel(TEST_BUFFER_SIZE, TEST_BUFFER_SIZE);
     (void)ParcelCopy(nullptr, nullptr);
@@ -334,8 +345,9 @@ static void HcParcelCopy001()
     DeleteParcel(&parcelDst);
 }
 
-static void HcParcelReadWriteRevert001()
+static void HcParcelReadWriteRevert001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     HcParcel parcelWithData = CreateParcel(TEST_BUFFER_SIZE, TEST_BUFFER_SIZE);
     int32_t srcInt = 0;
     int32_t dstInt = 0;
@@ -372,8 +384,9 @@ static void HcParcelReadWriteRevert001()
     DeleteParcel(&parcelWithData);
 }
 
-static void HcParcelPop001()
+static void HcParcelPop001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     HcParcel parcelWithData = CreateParcel(TEST_BUFFER_SIZE, TEST_BUFFER_SIZE);
     (void)ParcelWriteInt32(&parcelWithData, TEST_SRC_DATA);
     (void)ParcelPopBack(&parcelWithData, sizeof(uint32_t));
@@ -384,8 +397,9 @@ static void HcParcelPop001()
     DeleteParcel(&parcelWithData);
 }
 
-static void HcStringTest001()
+static void HcStringTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     HcString selfStr = CreateString();
     HcString srcStr = CreateString();
     (void)StringSetPointer(&srcStr, TEST_STR);
@@ -408,16 +422,18 @@ static void HcStringTest001()
     DeleteString(&srcStr);
 }
 
-static void HcCreateJsonTest001()
+static void HcCreateJsonTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     CJson *invalidJson = CreateJsonFromString(nullptr);
     CJson *validJson = CreateJsonFromString(TEST_JSON_STR);
     invalidJson = DuplicateJson(nullptr);
     FreeJson(validJson);
 }
 
-static void HcDeleteJsonTest001()
+static void HcDeleteJsonTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     CJson *validJson = CreateJsonFromString(TEST_JSON_STR);
     CJson *jsonItem = DetachItemFromJson(nullptr, "age");
     jsonItem = DetachItemFromJson(validJson, "age");
@@ -430,8 +446,9 @@ static void HcDeleteJsonTest001()
     FreeJson(validJson);
 }
 
-static void HcJsonGetTest001()
+static void HcJsonGetTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     CJson *validJson = CreateJsonFromString(TEST_JSON_STR);
     char *jsonStr = PackJsonToString(nullptr);
     jsonStr = PackJsonToString(validJson);
@@ -447,8 +464,9 @@ static void HcJsonGetTest001()
     FreeJson(validJson);
 }
 
-static void HcJsonGetTest002()
+static void HcJsonGetTest002(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     CJson *validJson = CreateJsonFromString(TEST_JSON_STR);
     const char *strObj = GetStringFromJson(nullptr, "name");
     strObj = GetStringFromJson(validJson, "name");
@@ -469,8 +487,9 @@ static void HcJsonGetTest002()
     FreeJson(validJson);
 }
 
-static void HcJsonGetTest003()
+static void HcJsonGetTest003(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     CJson *jsonObj = CreateJson();
     int data = 1;
     uint8_t value = 0;
@@ -499,8 +518,9 @@ static void HcJsonGetTest003()
     FreeJson(jsonObj);
 }
 
-static void HcJsonGetTest004()
+static void HcJsonGetTest004(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     CJson *jsonObj = CreateJson();
     uint32_t byteLen = 0;
     char byteData[] = "test_byte";
@@ -513,8 +533,9 @@ static void HcJsonGetTest004()
     FreeJson(jsonObj);
 }
 
-static void HcJsonAddTest001()
+static void HcJsonAddTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     CJson *jsonArr = CreateJsonFromString(TEST_JSON_STR_ARR);
     CJson *childObj = CreateJsonFromString(TEST_JSON_STR);
     (void)AddObjToJson(nullptr, "name", nullptr);
@@ -532,8 +553,9 @@ static void HcJsonAddTest001()
     FreeJson(jsonArr);
 }
 
-static void HcJsonAddTest002()
+static void HcJsonAddTest002(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     CJson *childObj = CreateJsonFromString(TEST_JSON_STR);
     char byteData[] = "test_byte";
     (void)AddByteToJson(nullptr, "name", reinterpret_cast<uint8_t *>(byteData), sizeof(byteData));
@@ -554,8 +576,9 @@ static void HcJsonAddTest002()
     (void)AddStringArrayToJson(childObj, "name", strArr, sizeof(strArr) / sizeof(strArr[0]));
 }
 
-static void HcJsonAddTest003()
+static void HcJsonAddTest003(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     CJson *jsonObj = CreateJson();
     (void)AddBoolToJson(jsonObj, nullptr, false);
     (void)AddByteToJson(jsonObj, nullptr, nullptr, TEST_BUFFER_SIZE);
@@ -572,8 +595,9 @@ static void HcJsonAddTest003()
     FreeJson(jsonObj);
 }
 
-static void HcClearJsonTest001()
+static void HcClearJsonTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     CJson *jsonObj = CreateJsonFromString(TEST_JSON_STR);
     ClearSensitiveStringInJson(nullptr, "name");
     ClearSensitiveStringInJson(jsonObj, "gender");
@@ -582,8 +606,9 @@ static void HcClearJsonTest001()
     FreeJson(jsonObj);
 }
 
-static void HcClearJsonTest002()
+static void HcClearJsonTest002(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     CJson *jsonObj = CreateJsonFromString(TEST_JSON_STR);
     char *jsonStr = PackJsonToString(jsonObj);
     ClearAndFreeJsonString(nullptr);
@@ -591,8 +616,9 @@ static void HcClearJsonTest002()
     FreeJson(jsonObj);
 }
 
-static void HcClearJsonTest003()
+static void HcClearJsonTest003(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     CJson *jsonObj = CreateJsonFromString(TEST_JSON_STR_1);
     char *jsonStr = PackJsonToString(jsonObj);
     ClearAndFreeJsonString(nullptr);
@@ -600,8 +626,9 @@ static void HcClearJsonTest003()
     FreeJson(jsonObj);
 }
 
-static void HcStringUtilTest001()
+static void HcStringUtilTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     const uint8_t byteData[] = "1234";
     const char hexData[] = "ABCD";
     const char invalidData[] = "GHJK";
@@ -624,8 +651,9 @@ static void HcStringUtilTest001()
     int64Res = StringToInt64(nullptr);
 }
 
-static void HcStringUtilTest002()
+static void HcStringUtilTest002(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     const char oriData[] = "abcd";
     const char inValidData[] = "";
     char *desData = nullptr;
@@ -635,16 +663,18 @@ static void HcStringUtilTest002()
     (void)DeepCopyString(inValidData, &desData);
 }
 
-static void HcStringUtilTest003()
+static void HcStringUtilTest003(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     const uint8_t byteData[] = "1234";
     uint32_t byteSize = sizeof(byteData);
     const char tag[] = "TEST";
     PrintBuffer(byteData, byteSize, tag);
 }
 
-static void HcStringUtilTest004()
+static void HcStringUtilTest004(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     const char oriData[] = "abcd";
     char anonymousData[TEST_MIN_ANONYMOUS_LEN + TEST_LEN_TWO] = { 0 };
     (void)GetAnonymousString(oriData, nullptr, TEST_MIN_ANONYMOUS_LEN + 1, true);
@@ -653,8 +683,9 @@ static void HcStringUtilTest004()
     (void)GetAnonymousString(oriData, anonymousData, TEST_MIN_ANONYMOUS_LEN + TEST_LEN_TWO, true);
 }
 
-static void ParseTlvHeadTest001()
+static void ParseTlvHeadTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     HcParcel parcelWithData = CreateParcel(TEST_BUFFER_SIZE, TEST_BUFFER_SIZE);
     ParcelWriteUint32(&parcelWithData, TEST_SRC_DATA);
     TlvBase tlvBase = {
@@ -676,8 +707,9 @@ static void ParseTlvHeadTest001()
 }
 
 
-static void ParseTlvNodeTest001()
+static void ParseTlvNodeTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     HcParcel parcelWithData = CreateParcel(TEST_BUFFER_SIZE, TEST_BUFFER_SIZE);
     ParcelWriteUint32(&parcelWithData, TEST_SRC_DATA);
     TlvBase tlvBase = {
@@ -691,8 +723,9 @@ static void ParseTlvNodeTest001()
 }
 
 /* ===== gap 1: hc_tlv_parser null-guard branches (added by 1222adae) ===== */
-static void TlvHeadNullGuardTest001()
+static void TlvHeadNullGuardTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE, TEST_BUFFER_SIZE);
     TlvBase tlvBase = { 0 };
     tlvBase.checkTag = 1;
@@ -702,8 +735,9 @@ static void TlvHeadNullGuardTest001()
     DeleteParcel(&parcel);
 }
 
-static void TlvHeadLenOverflowTest001()
+static void TlvHeadLenOverflowTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE, TEST_BUFFER_SIZE);
     ParcelWriteUint16(&parcel, FUZZ_TLV_TAG_BUF);
     ParcelWriteUint16(&parcel, static_cast<uint16_t>(FUZZ_TLV_HEAD_MAX_LEN + 1));
@@ -713,8 +747,9 @@ static void TlvHeadLenOverflowTest001()
     DeleteParcel(&parcel);
 }
 
-static void TlvNodeGuardTest001()
+static void TlvNodeGuardTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE, TEST_BUFFER_SIZE);
     TlvBase tlvBase = { 0 };
     (void)GetlenTlvNode(nullptr);
@@ -727,8 +762,9 @@ static void TlvNodeGuardTest001()
     DeleteParcel(&parcel);
 }
 
-static void TlvStructRoundtripTest001()
+static void TlvStructRoundtripTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     FuzzTlvStruct tlvStruct;
     InitFuzzTlvStruct(&tlvStruct, FUZZ_TLV_TAG_ROOT);
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE * 4, TEST_BUFFER_SIZE);
@@ -745,8 +781,9 @@ static void TlvStructRoundtripTest001()
     tlvStruct.base.deinit((TlvBase *)&tlvStruct);
 }
 
-static void TlvStructStrictFailTest001()
+static void TlvStructStrictFailTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     FuzzTlvStruct tlvStruct;
     InitFuzzTlvStruct(&tlvStruct, FUZZ_TLV_TAG_ROOT);
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE * 2, TEST_BUFFER_SIZE);
@@ -760,8 +797,9 @@ static void TlvStructStrictFailTest001()
     tlvStruct.base.deinit((TlvBase *)&tlvStruct);
 }
 
-static void TlvStructUnknownTagTest001()
+static void TlvStructUnknownTagTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     FuzzTlvStruct tlvStruct;
     InitFuzzTlvStruct(&tlvStruct, FUZZ_TLV_TAG_ROOT);
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE * 4, TEST_BUFFER_SIZE);
@@ -781,8 +819,9 @@ static void TlvStructUnknownTagTest001()
     tlvStruct.base.deinit((TlvBase *)&tlvStruct);
 }
 
-static void TlvStructEncodeGetLenDeinitTest001()
+static void TlvStructEncodeGetLenDeinitTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     (void)EncodeTlvStruct(nullptr, nullptr);
     (void)GetLenTlvStruct(nullptr);
     DeinitTlvStruct(nullptr);
@@ -797,8 +836,9 @@ static void TlvStructEncodeGetLenDeinitTest001()
     DeinitTlvStruct((TlvBase *)&tlvStruct);
 }
 
-static void TlvMessageEncodeDecodeTest001()
+static void TlvMessageEncodeDecodeTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     (void)EncodeTlvMessage(nullptr, nullptr);
     (void)DecodeTlvMessage(nullptr, nullptr, HC_FALSE);
     TlvUint32 tlvUint32;
@@ -814,8 +854,9 @@ static void TlvMessageEncodeDecodeTest001()
     tlvDst.base.deinit((TlvBase *)&tlvDst);
 }
 
-static void TlvMessageExtraDataTest001()
+static void TlvMessageExtraDataTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     TlvUint32 tlvUint32;
     InitTlvUint32(&tlvUint32, FUZZ_TLV_TAG_BUF);
     tlvUint32.data = FUZZ_UINT32_VAL_A;
@@ -831,8 +872,9 @@ static void TlvMessageExtraDataTest001()
     tlvDst.base.deinit((TlvBase *)&tlvDst);
 }
 
-static void TlvBufferTest001()
+static void TlvBufferTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     InitTlvBuffer(nullptr, FUZZ_TLV_TAG_BUF);
     TlvBuffer tlvBuf;
     InitTlvBuffer(&tlvBuf, FUZZ_TLV_TAG_BUF);
@@ -850,8 +892,9 @@ static void TlvBufferTest001()
     tlvBuf.base.deinit((TlvBase *)&tlvBuf);
 }
 
-static void TlvBufferEncodeTest001()
+static void TlvBufferEncodeTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     TlvBuffer tlvBuf;
     InitTlvBuffer(&tlvBuf, FUZZ_TLV_TAG_BUF);
     uint8_t data[4] = { 1, 2, 3, 4 };
@@ -868,8 +911,9 @@ static void TlvBufferEncodeTest001()
     emptyBuf.base.deinit((TlvBase *)&emptyBuf);
 }
 
-static void TlvStringTest001()
+static void TlvStringTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     InitTlvString(nullptr, FUZZ_TLV_TAG_BUF);
     TlvString tlvStr;
     InitTlvString(&tlvStr, FUZZ_TLV_TAG_BUF);
@@ -884,8 +928,9 @@ static void TlvStringTest001()
     tlvStr.base.deinit((TlvBase *)&tlvStr);
 }
 
-static void TlvFixLengthTypesTest001()
+static void TlvFixLengthTypesTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     TlvUint8 u8;
     InitTlvUint8(&u8, FUZZ_TLV_TAG_BUF);
     TlvUint16 u16;
@@ -920,15 +965,17 @@ static void TlvFixLengthTypesTest001()
     u32Dst.base.deinit((TlvBase *)&u32Dst);
 }
 
-static void TlvGetTagTest001()
+static void TlvGetTagTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     (void)GetTag(FUZZ_TLV_TAG_BUF, 0xFFFF);
     (void)GetTag(0xFFFF, FUZZ_TLV_TAG_BUF);
 }
 
 /* ===== gap 2a: cred_tlv_parser (only guarded funcs accept null) ===== */
-static void CredTlvNullGuardTest001()
+static void CredTlvNullGuardTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     (void)DeinitCredTlvNode(nullptr);
     (void)EncodeCredTlvMessage(nullptr, nullptr);
     (void)DecodeCredTlvMessage(nullptr, nullptr, HC_FALSE);
@@ -936,8 +983,9 @@ static void CredTlvNullGuardTest001()
     (void)GetCredTag(0xFFFF, FUZZ_TLV_TAG_BUF);
 }
 
-static void CredTlvHeadLenOverflowTest001()
+static void CredTlvHeadLenOverflowTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     CredTlvUint32 tlvUint32;
     InitCredTlvUint32(&tlvUint32, FUZZ_TLV_TAG_BUF);
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE * 2, TEST_BUFFER_SIZE);
@@ -948,8 +996,9 @@ static void CredTlvHeadLenOverflowTest001()
     tlvUint32.base.deinit((CredTlvBase *)&tlvUint32);
 }
 
-static void CredTlvFixTypeRoundtripTest001()
+static void CredTlvFixTypeRoundtripTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     CredTlvUint32 tlvUint32;
     InitCredTlvUint32(&tlvUint32, FUZZ_TLV_TAG_BUF);
     tlvUint32.data = FUZZ_UINT32_VAL_A;
@@ -963,8 +1012,9 @@ static void CredTlvFixTypeRoundtripTest001()
     tlvDst.base.deinit((CredTlvBase *)&tlvDst);
 }
 
-static void CredTlvStructRoundtripTest001()
+static void CredTlvStructRoundtripTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     FuzzCredTlvStruct tlvStruct;
     InitFuzzCredTlvStruct(&tlvStruct, FUZZ_TLV_TAG_ROOT);
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE * 4, TEST_BUFFER_SIZE);
@@ -981,8 +1031,9 @@ static void CredTlvStructRoundtripTest001()
     tlvStruct.base.deinit((CredTlvBase *)&tlvStruct);
 }
 
-static void CredTlvStructUnknownTagTest001()
+static void CredTlvStructUnknownTagTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     FuzzCredTlvStruct tlvStruct;
     InitFuzzCredTlvStruct(&tlvStruct, FUZZ_TLV_TAG_ROOT);
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE * 4, TEST_BUFFER_SIZE);
@@ -1002,8 +1053,9 @@ static void CredTlvStructUnknownTagTest001()
     tlvStruct.base.deinit((CredTlvBase *)&tlvStruct);
 }
 
-static void CredTlvStructStrictFailTest001()
+static void CredTlvStructStrictFailTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     FuzzCredTlvStruct tlvStruct;
     InitFuzzCredTlvStruct(&tlvStruct, FUZZ_TLV_TAG_ROOT);
     HcParcel parcel = CreateParcel(TEST_BUFFER_SIZE * 2, TEST_BUFFER_SIZE);
@@ -1017,8 +1069,9 @@ static void CredTlvStructStrictFailTest001()
     tlvStruct.base.deinit((CredTlvBase *)&tlvStruct);
 }
 
-static void CredTlvBufferTest001()
+static void CredTlvBufferTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     CredTlvBuffer tlvBuf;
     InitCredTlvBuffer(&tlvBuf, FUZZ_TLV_TAG_BUF);
     uint8_t data[4] = { 1, 2, 3, 4 };
@@ -1035,8 +1088,9 @@ static void CredTlvBufferTest001()
     emptyBuf.base.deinit((CredTlvBase *)&emptyBuf);
 }
 
-static void CredTlvStringTest001()
+static void CredTlvStringTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     CredTlvString tlvStr;
     InitCredTlvString(&tlvStr, FUZZ_TLV_TAG_BUF);
     StringSetPointer(&tlvStr.data, "test1234");
@@ -1047,8 +1101,9 @@ static void CredTlvStringTest001()
 }
 
 /* ===== gap 2b: group_data_manager / operation_data_manager ===== */
-static void GroupEntryTest001()
+static void GroupEntryTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     (void)GenerateGroupEntryFromEntry(nullptr, nullptr);
     (void)DeepCopyGroupEntry(nullptr);
     TrustedGroupEntry *entry = CreateGroupEntry();
@@ -1064,8 +1119,9 @@ static void GroupEntryTest001()
     (void)params.groupType;
 }
 
-static void DeviceEntryTest001()
+static void DeviceEntryTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     (void)GenerateDeviceEntryFromEntry(nullptr, nullptr);
     (void)DeepCopyDeviceEntry(nullptr);
     TrustedDeviceEntry *entry = CreateDeviceEntry();
@@ -1081,17 +1137,20 @@ static void DeviceEntryTest001()
     (void)params.udid;
 }
 
-static void OperationRecordTest001()
+static void OperationRecordTest001(FuzzedDataProvider &fdp)
 {
     (void)DeepCopyOperationRecord(nullptr);
     OperationRecord *rec = CreateOperationRecord();
     if (rec == nullptr) {
         return;
     }
-    CopyHcStringForcibly(&rec->caller, "fuzz_caller");
-    CopyHcStringForcibly(&rec->function, "fuzz_func");
-    CopyHcStringForcibly(&rec->operationInfo, "fuzz_info");
-    rec->operationType = FUZZ_OPERATION_TYPE;
+    std::string caller = fdp.ConsumeRandomLengthString(64);
+    std::string function = fdp.ConsumeRandomLengthString(64);
+    std::string info = fdp.ConsumeRandomLengthString(128);
+    CopyHcStringForcibly(&rec->caller, caller.c_str());
+    CopyHcStringForcibly(&rec->function, function.c_str());
+    CopyHcStringForcibly(&rec->operationInfo, info.c_str());
+    rec->operationType = fdp.ConsumeIntegral<uint32_t>();
     OperationRecord *copy = DeepCopyOperationRecord(rec);
     if (copy != nullptr) {
         DestroyOperationRecord(copy);
@@ -1099,38 +1158,45 @@ static void OperationRecordTest001()
     DestroyOperationRecord(rec);
 }
 
-static void OperationDataManagerTest001()
+static void OperationDataManagerTest001(FuzzedDataProvider &fdp)
 {
     (void)InitOperationDataManager();
     OperationRecord *rec = CreateOperationRecord();
     if (rec == nullptr) {
         return;
     }
-    CopyHcStringForcibly(&rec->caller, "fuzz_caller");
-    CopyHcStringForcibly(&rec->function, "fuzz_func");
-    CopyHcStringForcibly(&rec->operationInfo, "fuzz_info");
-    rec->operationType = FUZZ_OPERATION_TYPE;
-    (void)RecordOperationData(FUZZ_OS_ACCOUNT_ID, rec);
+    std::string caller = fdp.ConsumeRandomLengthString(64);
+    std::string function = fdp.ConsumeRandomLengthString(64);
+    std::string info = fdp.ConsumeRandomLengthString(128);
+    CopyHcStringForcibly(&rec->caller, caller.c_str());
+    CopyHcStringForcibly(&rec->function, function.c_str());
+    CopyHcStringForcibly(&rec->operationInfo, info.c_str());
+    rec->operationType = fdp.ConsumeIntegral<uint32_t>();
+    int32_t osAccountId = fdp.ConsumeIntegral<int32_t>();
+    (void)RecordOperationData(osAccountId, rec);
     char record[FUZZ_RECORD_BUF_SIZE] = { 0 };
-    (void)GetOperationDataRecently(FUZZ_OS_ACCOUNT_ID, OPERATION_ANY, record, sizeof(record), 1);
+    (void)GetOperationDataRecently(osAccountId, OPERATION_ANY, record, sizeof(record), 1);
     DestroyOperationRecord(rec);
 }
 
-static void SetAnonymousFieldTest001()
+static void SetAnonymousFieldTest001(FuzzedDataProvider &fdp)
 {
     CJson *operationInfo = CreateJson();
     if (operationInfo == nullptr) {
         return;
     }
-    SetAnonymousField("abcdef1234567890", "udid", operationInfo);
-    SetAnonymousField(nullptr, "udid", operationInfo);
-    SetAnonymousField("abcdef", nullptr, operationInfo);
+    std::string str = fdp.ConsumeRandomLengthString(64);
+    std::string field = fdp.ConsumeRandomLengthString(32);
+    SetAnonymousField(str.c_str(), field.c_str(), operationInfo);
+    SetAnonymousField(nullptr, field.c_str(), operationInfo);
+    SetAnonymousField(str.c_str(), nullptr, operationInfo);
     FreeJson(operationInfo);
 }
 
 /* ===== gap 3a: mk_agree ===== */
-static void MkAgreeTaskNullTest001()
+static void MkAgreeTaskNullTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     MkAgreeTaskBase *task = nullptr;
     (void)CreateMkAgreeTask(TASK_TYPE_PAKE, nullptr, &task);
     (void)CreateMkAgreeTask(TASK_TYPE_PAKE, nullptr, nullptr);
@@ -1141,30 +1207,29 @@ static void MkAgreeTaskNullTest001()
     }
 }
 
-static void MkAgreeTaskProtocolTypeTest001()
+static void MkAgreeTaskProtocolTypeTest001(FuzzedDataProvider &fdp)
 {
     CJson *in = CreateJson();
     if (in == nullptr) {
         return;
     }
-    (void)AddBoolToJson(in, FIELD_IS_CLIENT, true);
+    (void)AddBoolToJson(in, FIELD_IS_CLIENT, fdp.ConsumeBool());
     MkAgreeTaskBase *task = nullptr;
-    (void)CreateMkAgreeTask(TASK_TYPE_ISO, in, &task);
-    (void)CreateMkAgreeTask(-1, in, &task);
-    (void)CreateMkAgreeTask(FUZZ_MK_AGREE_INVALID_PROTOCOL_TYPE, in, &task);
+    int32_t proto = fdp.ConsumeIntegral<int32_t>();
+    (void)CreateMkAgreeTask(proto, in, &task);
     CJson *empty = CreateJson();
-    (void)CreateMkAgreeTask(TASK_TYPE_PAKE, empty, &task);
+    (void)CreateMkAgreeTask(proto, empty, &task);
     FreeJson(empty);
     FreeJson(in);
 }
 
-static void MkAgreeTaskPakeAttemptTest001()
+static void MkAgreeTaskPakeAttemptTest001(FuzzedDataProvider &fdp)
 {
     CJson *in = CreateJson();
     if (in == nullptr) {
         return;
     }
-    (void)AddBoolToJson(in, FIELD_IS_CLIENT, true);
+    (void)AddBoolToJson(in, FIELD_IS_CLIENT, fdp.ConsumeBool());
     MkAgreeTaskBase *task = nullptr;
     int32_t res = CreateMkAgreeTask(TASK_TYPE_PAKE, in, &task);
     if (res == HC_SUCCESS && task != nullptr) {
@@ -1179,8 +1244,9 @@ static void MkAgreeTaskPakeAttemptTest001()
 }
 
 /* ===== gap 3b: privacy_enhancement / pseudonym ===== */
-static void PseudonymNullParamTest001()
+static void PseudonymNullParamTest001(FuzzedDataProvider &fdp)
 {
+    (void)fdp;
     PseudonymManager *inst = GetPseudonymInstance();
     if (inst == nullptr) {
         return;
@@ -1196,38 +1262,44 @@ static void PseudonymNullParamTest001()
     (void)inst->isNeedRefreshPseudonymId(FUZZ_OS_ACCOUNT_ID, nullptr);
 }
 
-static void PseudonymNormalQueryTest001()
+static void PseudonymNormalQueryTest001(FuzzedDataProvider &fdp)
 {
     PseudonymManager *inst = GetPseudonymInstance();
     if (inst == nullptr) {
         return;
     }
+    int32_t osAccountId = fdp.ConsumeIntegral<int32_t>();
+    std::string pid = fdp.ConsumeRandomLengthString(64);
+    std::string key = fdp.ConsumeRandomLengthString(64);
     char *realInfo = nullptr;
-    (void)inst->getRealInfo(FUZZ_OS_ACCOUNT_ID, "fuzz_pid", &realInfo);
+    (void)inst->getRealInfo(osAccountId, pid.c_str(), &realInfo);
     if (realInfo != nullptr) {
         HcFree(realInfo);
         realInfo = nullptr;
     }
     char *pseudonymId = nullptr;
-    (void)inst->getPseudonymId(FUZZ_OS_ACCOUNT_ID, "fuzz_key", &pseudonymId);
+    (void)inst->getPseudonymId(osAccountId, key.c_str(), &pseudonymId);
     if (pseudonymId != nullptr) {
         HcFree(pseudonymId);
         pseudonymId = nullptr;
     }
-    (void)inst->isNeedRefreshPseudonymId(FUZZ_OS_ACCOUNT_ID, "fuzz_key");
+    (void)inst->isNeedRefreshPseudonymId(osAccountId, key.c_str());
 }
 
-static void PseudonymDeleteTest001()
+static void PseudonymDeleteTest001(FuzzedDataProvider &fdp)
 {
     PseudonymManager *inst = GetPseudonymInstance();
     if (inst == nullptr) {
         return;
     }
-    (void)inst->deleteAllPseudonymId(FUZZ_OS_ACCOUNT_ID, "fuzz_dev");
-    (void)inst->deletePseudonymId(FUZZ_OS_ACCOUNT_ID, "fuzz_key");
+    int32_t osAccountId = fdp.ConsumeIntegral<int32_t>();
+    std::string dev = fdp.ConsumeRandomLengthString(64);
+    std::string key = fdp.ConsumeRandomLengthString(64);
+    (void)inst->deleteAllPseudonymId(osAccountId, dev.c_str());
+    (void)inst->deletePseudonymId(osAccountId, key.c_str());
 }
 
-using TestFunc = void(*)(void);
+using TestFunc = void(*)(FuzzedDataProvider &);
 static TestFunc g_testFuncs[] = {
     HcParcelNullPtrTest001, HcParcelNullPtrTest002,
     HcParcelInValidDataSizeTest001, HcParcelInValidDataSizeTest002,
@@ -1268,7 +1340,7 @@ bool FuzzDoCallback(const uint8_t* data, size_t size)
     }
     FuzzedDataProvider fdp(data, size);
     uint32_t testId = fdp.ConsumeIntegral<uint32_t>();
-    g_testFuncs[testId % TEST_FUNC_COUNT]();
+    g_testFuncs[testId % TEST_FUNC_COUNT](fdp);
     return true;
 }
 }

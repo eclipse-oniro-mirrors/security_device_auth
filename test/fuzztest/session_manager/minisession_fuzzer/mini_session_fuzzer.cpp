@@ -91,16 +91,17 @@ static void BuildFuzzedSessionParams(FuzzedDataProvider &fdp, LightSessionInitPa
    null inputs are inherently non-random (null is null). */
 static void LightSessionNullParamTest001(FuzzedDataProvider &fdp)
 {
-    (void)fdp;
     (void)AddLightSession(nullptr);
     LightSessionInitParams params;
     DeviceAuthCallback callback;
     (void)memset_s(&params, sizeof(params), 0, sizeof(params));
     (void)memset_s(&callback, sizeof(callback), 0, sizeof(callback));
-    params.callback = nullptr;
-    (void)AddLightSession(&params);
-    params.callback = &callback;
-    params.serviceId = nullptr;
+    if (fdp.ConsumeBool()) {
+        params.callback = nullptr;
+    } else {
+        params.callback = &callback;
+        params.serviceId = nullptr;
+    }
     (void)AddLightSession(&params);
 }
 

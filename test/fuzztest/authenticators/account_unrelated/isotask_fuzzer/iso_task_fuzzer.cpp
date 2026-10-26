@@ -257,14 +257,16 @@ static void BuildFuzzedIsoTaskJson(FuzzedDataProvider &fdp, CJson *in)
 
 static void IsoTaskCreateNullTest001(FuzzedDataProvider &fdp)
 {
-    (void)fdp;
-    (void)CreateIsoSubTask(nullptr);
-    CJson *in = CreateJson();
-    if (in == nullptr) {
-        return;
+    if (fdp.ConsumeBool()) {
+        (void)CreateIsoSubTask(nullptr);
+    } else {
+        CJson *in = CreateJson();
+        if (in == nullptr) {
+            return;
+        }
+        (void)CreateIsoSubTask(in);
+        FreeJson(in);
     }
-    (void)CreateIsoSubTask(in);
-    FreeJson(in);
 }
 
 static void IsoTaskCreateFuzzTest001(FuzzedDataProvider &fdp)
