@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Huawei Device Co., Ltd.
+ * Copyright (C) 2021-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -125,6 +125,9 @@ typedef int32_t (*BigNumExpModFunc)(const Uint8Buff *base, const Uint8Buff *exp,
 typedef int32_t (*GenerateKeyPairWithStorageFunc)(const KeyParams *keyParams, uint32_t keyLen, Algorithm algo,
     KeyPurpose purpose, const ExtraInfo *exInfo);
 
+typedef int32_t (*GenerateAesGcmKeyWithStorageFunc)(const KeyParams *keyParams, uint32_t keyLen,
+    KeyPurpose purpose);
+
 typedef int32_t (*ExportPublicKeyFunc)(const KeyParams *keyParams, Uint8Buff *outPubKey);
 
 typedef int32_t (*SignFunc)(const KeyParams *keyParams, const Uint8Buff *message, Algorithm algo,
@@ -167,6 +170,7 @@ typedef struct {
     AgreeSharedSecretFunc agreeSharedSecret;
     BigNumExpModFunc bigNumExpMod;
     GenerateKeyPairWithStorageFunc generateKeyPairWithStorage;
+    GenerateAesGcmKeyWithStorageFunc generateAesGcmKeyWithStorage;
     ExportPublicKeyFunc exportPublicKey;
     SignFunc sign;
     VerifyFunc verify;

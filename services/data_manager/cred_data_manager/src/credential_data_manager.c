@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 Huawei Device Co., Ltd.
+ * Copyright (C) 2025-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -17,6 +17,10 @@
 
 #include "common_defs.h"
 #include "device_auth_defines.h"
+#include "alg_defs.h"
+#include "alg_loader.h"
+#include "hal_error.h"
+#include "uint8buff_utils.h"
 #include "hc_dev_info.h"
 #include "hc_file.h"
 #include "hc_log.h"
@@ -31,6 +35,7 @@
 #include "cred_tlv_parser.h"
 #include "identity_service_defines.h"
 #include "string_util.h"
+#include "hisysevent_adapter.h"
 
 typedef struct {
     DECLARE_CRED_TLV_STRUCT(17)
@@ -99,6 +104,13 @@ DECLARE_HC_VECTOR(DevAuthCredDb, OsAccountCredInfo)
 IMPLEMENT_HC_VECTOR(DevAuthCredDb, OsAccountCredInfo, 1)
 
 #define MAX_DB_PATH_LEN 256
+
+#define CRED_FILE_ENC_NONCE_LEN 12
+#define CRED_FILE_ENC_KEY_LEN 32
+#define CRED_FILE_ENC_ALIAS_MAX_LEN 64
+#define CRED_FILE_ENC_ALIAS_SUFFIX "_credential_alias"
+#define CRED_FILE_ENC_AAD "hccredential.dat"
+#define CRED_FILE_ENC_AAD_LEN (sizeof(CRED_FILE_ENC_AAD) - 1)
 
 static HcMutex *g_credMutex = NULL;
 static DevAuthCredDb g_devauthCredDb;
@@ -357,7 +369,212 @@ static bool ReadCredInfoFromParcel(HcParcel *parcel, OsAccountCredInfo *info)
     return ret;
 }
 
-static bool ReadParcelFromFile(const char *filePath, HcParcel *parcel)
+static int32_t BuildCredFileEncKeyAlias(int32_t osAccountId, uint8_t *buf, uint32_t bufLen, uint32_t *outLen)
+{
+    int n = sprintf_s((char *)buf, bufLen, "%d%s", osAccountId, CRED_FILE_ENC_ALIAS_SUFFIX);
+    if (n <= 0) {
+        LOGE("[CRED#DB]: build cred file enc key alias failed!");
+        return IS_ERR_CONVERT_FAILED;
+    }
+    *outLen = (uint32_t)n;
+    return IS_SUCCESS;
+}
+
+static bool CredFileEncKeyExist(int32_t osAccountId)
+{
+    uint8_t aliasVal[CRED_FILE_ENC_ALIAS_MAX_LEN];
+    uint32_t aliasLen = 0;
+    if (BuildCredFileEncKeyAlias(osAccountId, aliasVal, sizeof(aliasVal), &aliasLen) != IS_SUCCESS) {
+        LOGE("[CRED#DB]: build alias for key exist check failed!");
+        return false;
+    }
+    Uint8Buff keyAlias = { aliasVal, aliasLen };
+    bool ret = (GetLoaderInstance()->checkKeyExist(&keyAlias, false, osAccountId) == HAL_SUCCESS);
+    if (memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal)) != EOK) { LOGE("memset_s failed!"); }
+    return ret;
+}
+
+static int32_t EnsureCredFileEncKeyExist(int32_t osAccountId)
+{
+    uint8_t aliasVal[CRED_FILE_ENC_ALIAS_MAX_LEN];
+    uint32_t aliasLen = 0;
+    if (BuildCredFileEncKeyAlias(osAccountId, aliasVal, sizeof(aliasVal), &aliasLen) != IS_SUCCESS) {
+        LOGE("[CRED#DB]: build alias for key ensure failed!");
+        return IS_ERR_CONVERT_FAILED;
+    }
+    Uint8Buff keyAlias = { aliasVal, aliasLen };
+    int32_t ret = GetLoaderInstance()->checkKeyExist(&keyAlias, false, osAccountId);
+    if (ret == HAL_SUCCESS) {
+        if (memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal)) != EOK) { LOGE("memset_s failed!"); }
+        return IS_SUCCESS;
+    }
+    if (ret != HAL_ERR_KEY_NOT_EXIST) {
+        LOGE("[CRED#DB]: check cred file enc key failed, res: %" LOG_PUB "d", ret);
+        if (memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal)) != EOK) { LOGE("memset_s failed!"); }
+        DEV_AUTH_REPORT_FAULT_EVENT_WITH_ERR_CODE(CRED_FILE_KEY_GEN_EVENT,
+            PROCESS_CRED_FILE_KEY_GEN, IS_ERR_HUKS_CHECK_KEY_EXIST_FAILED);
+        return IS_ERR_INIT_FAILED;
+    }
+    KeyParams keyParams = { { aliasVal, aliasLen, true }, false, osAccountId };
+    ret = GetLoaderInstance()->generateAesGcmKeyWithStorage(&keyParams, CRED_FILE_ENC_KEY_LEN,
+        KEY_PURPOSE_KEY_ENCRYPT);
+    if (memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal)) != EOK) { LOGE("memset_s failed!"); }
+    if (ret != HAL_SUCCESS) {
+        LOGE("[CRED#DB]: generate cred file enc key failed, res: %" LOG_PUB "d", ret);
+        DEV_AUTH_REPORT_FAULT_EVENT_WITH_ERR_CODE(CRED_FILE_KEY_GEN_EVENT,
+            PROCESS_CRED_FILE_KEY_GEN, IS_ERR_HUKS_GENERATE_KEY_FAILED);
+        return IS_ERR_INIT_FAILED;
+    }
+    LOGI("[CRED#DB]: cred file enc key created. [Id]: %" LOG_PUB "d", osAccountId);
+    return IS_SUCCESS;
+}
+
+static void DeleteCredFileEncKey(int32_t osAccountId)
+{
+    uint8_t aliasVal[CRED_FILE_ENC_ALIAS_MAX_LEN];
+    uint32_t aliasLen = 0;
+    if (BuildCredFileEncKeyAlias(osAccountId, aliasVal, sizeof(aliasVal), &aliasLen) != IS_SUCCESS) {
+        LOGE("[CRED#DB]: build alias for key delete failed!");
+        return;
+    }
+    Uint8Buff keyAlias = { aliasVal, aliasLen };
+    int32_t ret = GetLoaderInstance()->deleteKey(&keyAlias, false, osAccountId);
+    if (memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal)) != EOK) { LOGE("memset_s failed!"); }
+    if (ret != HAL_SUCCESS) {
+        LOGE("[CRED#DB]: delete cred file enc key failed, res: %" LOG_PUB "d", ret);
+        DEV_AUTH_REPORT_FAULT_EVENT_WITH_ERR_CODE(CRED_FILE_KEY_DEL_EVENT,
+            PROCESS_CRED_FILE_KEY_DEL, IS_ERR_HUKS_DELETE_FAILED);
+    } else {
+        LOGI("[CRED#DB]: cred file enc key deleted. [Id]: %" LOG_PUB "d", osAccountId);
+    }
+}
+
+static int32_t GenerateEncNonce(uint8_t *nonce, uint32_t nonceLen)
+{
+    Uint8Buff nonceBuff = { nonce, nonceLen };
+    int32_t ret = GetLoaderInstance()->generateRandom(&nonceBuff);
+    if (ret != HAL_SUCCESS) {
+        LOGE("[CRED#DB]: generate nonce failed, res: %" LOG_PUB "d", ret);
+    }
+    return ret;
+}
+
+static void CleanEncSensitiveData(uint8_t *aliasVal, uint32_t aliasSize,
+    uint8_t *nonce, uint32_t nonceSize)
+{
+    if (memset_s(aliasVal, aliasSize, 0, aliasSize) != EOK) { LOGE("memset_s failed!"); }
+    if (memset_s(nonce, nonceSize, 0, nonceSize) != EOK) { LOGE("memset_s failed!"); }
+}
+
+static int32_t DoAesGcmEncrypt(const Uint8Buff *plain, const Uint8Buff *alias,
+    int32_t osAccountId, uint8_t *nonce, uint8_t *buf)
+{
+    KeyParams keyParams = { { alias->val, alias->length, true }, false, osAccountId };
+    GcmParam gcmParam = { nonce, CRED_FILE_ENC_NONCE_LEN, (uint8_t *)CRED_FILE_ENC_AAD,
+        CRED_FILE_ENC_AAD_LEN };
+    Uint8Buff cipherBuff = { buf + CRED_FILE_ENC_NONCE_LEN, plain->length + AE_TAG_LEN };
+    return GetLoaderInstance()->aesGcmEncrypt(&keyParams, plain, &gcmParam, &cipherBuff);
+}
+
+static int32_t EncryptCredFileData(const uint8_t *plain, uint32_t plainLen, int32_t osAccountId,
+    uint8_t **outEnc, uint32_t *outEncLen)
+{
+    uint8_t aliasVal[CRED_FILE_ENC_ALIAS_MAX_LEN];
+    uint32_t aliasLen = 0;
+    if (BuildCredFileEncKeyAlias(osAccountId, aliasVal, sizeof(aliasVal), &aliasLen) != IS_SUCCESS) {
+        LOGE("[CRED#DB]: build alias for encrypt failed!");
+        return IS_ERR_CONVERT_FAILED;
+    }
+    uint8_t nonce[CRED_FILE_ENC_NONCE_LEN];
+    int32_t ret = GenerateEncNonce(nonce, CRED_FILE_ENC_NONCE_LEN);
+    if (ret != HAL_SUCCESS) {
+        CleanEncSensitiveData(aliasVal, sizeof(aliasVal), nonce, sizeof(nonce));
+        return ret;
+    }
+    if (plainLen > MAX_TOTOL_LEN) {
+        LOGE("[CRED#DB]: plain too large, len: %" LOG_PUB "u", plainLen);
+        CleanEncSensitiveData(aliasVal, sizeof(aliasVal), nonce, sizeof(nonce));
+        return IS_ERR_INVALID_PARAMS;
+    }
+    uint32_t cipherLen = plainLen + AE_TAG_LEN;
+    uint32_t totalLen = CRED_FILE_ENC_NONCE_LEN + cipherLen;
+    uint8_t *buf = (uint8_t *)HcMalloc(totalLen, 0);
+    if (buf == NULL) {
+        LOGE("[CRED#DB]: alloc enc buf failed.");
+        CleanEncSensitiveData(aliasVal, sizeof(aliasVal), nonce, sizeof(nonce));
+        return IS_ERR_ALLOC_MEMORY;
+    }
+    if (memcpy_s(buf, totalLen, nonce, CRED_FILE_ENC_NONCE_LEN) != EOK) {
+        LOGE("[CRED#DB]: memcpy nonce to enc buf failed!");
+        HcFree(buf);
+        CleanEncSensitiveData(aliasVal, sizeof(aliasVal), nonce, sizeof(nonce));
+        return IS_ERR_MEMORY_COPY;
+    }
+    Uint8Buff plainBuff = { (uint8_t *)plain, plainLen };
+    Uint8Buff aliasBuff = { aliasVal, aliasLen };
+    ret = DoAesGcmEncrypt(&plainBuff, &aliasBuff, osAccountId, nonce, buf);
+    CleanEncSensitiveData(aliasVal, sizeof(aliasVal), nonce, sizeof(nonce));
+    if (ret != HAL_SUCCESS) {
+        LOGE("[CRED#DB]: aesGcmEncrypt cred file failed, res: %" LOG_PUB "d", ret);
+        DEV_AUTH_REPORT_FAULT_EVENT_WITH_ERR_CODE(CRED_FILE_ENCRYPT_EVENT,
+            PROCESS_CRED_FILE_ENCRYPT, IS_ERR_HUKS_IMPORT_KEY_FAILED);
+        HcFree(buf);
+        return ret;
+    }
+    *outEnc = buf;
+    *outEncLen = totalLen;
+    return IS_SUCCESS;
+}
+
+static int32_t DecryptCredFileToParcel(const uint8_t *fileData, uint32_t fileLen, int32_t osAccountId,
+    HcParcel *parcel)
+{
+    if (fileLen <= CRED_FILE_ENC_NONCE_LEN + AE_TAG_LEN) {
+        LOGE("[CRED#DB]: enc file too short, len: %" LOG_PUB "u", fileLen);
+        return IS_ERR_INVALID_PARAMS;
+    }
+    uint8_t aliasVal[CRED_FILE_ENC_ALIAS_MAX_LEN];
+    uint32_t aliasLen = 0;
+    if (BuildCredFileEncKeyAlias(osAccountId, aliasVal, sizeof(aliasVal), &aliasLen) != IS_SUCCESS) {
+        LOGE("[CRED#DB]: build alias for decrypt failed!");
+        return IS_ERR_CONVERT_FAILED;
+    }
+    const uint8_t *nonce = fileData;
+    uint32_t cipherLen = fileLen - CRED_FILE_ENC_NONCE_LEN;
+    uint32_t plainLen = cipherLen - AE_TAG_LEN;
+    uint8_t *plain = (uint8_t *)HcMalloc(plainLen, 0);
+    if (plain == NULL) {
+        LOGE("[CRED#DB]: alloc plain buf failed.");
+        if (memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal)) != EOK) { LOGE("memset_s failed!"); }
+        return IS_ERR_ALLOC_MEMORY;
+    }
+    KeyParams keyParams = { { aliasVal, aliasLen, true }, false, osAccountId };
+    GcmParam gcmParam = { (uint8_t *)nonce, CRED_FILE_ENC_NONCE_LEN, (uint8_t *)CRED_FILE_ENC_AAD,
+        CRED_FILE_ENC_AAD_LEN };
+    Uint8Buff cipherBuff = { (uint8_t *)(fileData + CRED_FILE_ENC_NONCE_LEN), cipherLen };
+    Uint8Buff plainBuff = { plain, plainLen };
+    int32_t ret = GetLoaderInstance()->aesGcmDecrypt(&keyParams, &cipherBuff, &gcmParam, &plainBuff);
+    if (memset_s(aliasVal, sizeof(aliasVal), 0, sizeof(aliasVal)) != EOK) { LOGE("memset_s failed!"); }
+    if (ret != HAL_SUCCESS) {
+        LOGE("[CRED#DB]: aesGcmDecrypt cred file failed, res: %" LOG_PUB "d", ret);
+        DEV_AUTH_REPORT_FAULT_EVENT_WITH_ERR_CODE(CRED_FILE_DECRYPT_EVENT,
+            PROCESS_CRED_FILE_DECRYPT, IS_ERR_HUKS_IMPORT_KEY_FAILED);
+        if (memset_s(plain, plainLen, 0, plainLen) != EOK) { LOGE("memset_s failed!"); }
+        HcFree(plain);
+        return ret;
+    }
+    if (!ParcelWrite(parcel, plain, plainLen)) {
+        LOGE("[CRED#DB]: parcel write plain failed.");
+        if (memset_s(plain, plainLen, 0, plainLen) != EOK) { LOGE("memset_s failed!"); }
+        HcFree(plain);
+        return IS_ERR_MEMORY_COPY;
+    }
+    if (memset_s(plain, plainLen, 0, plainLen) != EOK) { LOGE("memset_s failed!"); }
+    HcFree(plain);
+    return IS_SUCCESS;
+}
+
+static bool ReadCredFileRaw(const char *filePath, uint8_t **outData, int *outLen)
 {
     FileHandle file;
     int ret = HcFileOpen(filePath, MODE_FILE_READ, &file);
@@ -372,7 +589,7 @@ static bool ReadParcelFromFile(const char *filePath, HcParcel *parcel)
         HcFileClose(file);
         return false;
     }
-    char *fileData = (char *)HcMalloc(fileSize, 0);
+    uint8_t *fileData = (uint8_t *)HcMalloc(fileSize, 0);
     if (fileData == NULL) {
         LOGE("[CRED#DB]: Failed to allocate fileData memory!");
         HcFileClose(file);
@@ -385,34 +602,111 @@ static bool ReadParcelFromFile(const char *filePath, HcParcel *parcel)
         return false;
     }
     HcFileClose(file);
-    if (!ParcelWrite(parcel, fileData, fileSize)) {
-        LOGE("[CRED#DB]: parcel write error!");
-        HcFree(fileData);
-        return false;
-    }
-    HcFree(fileData);
+    *outData = fileData;
+    *outLen = fileSize;
     return true;
 }
 
-static bool SaveParcelToFile(const char *filePath, HcParcel *parcel)
+static bool SaveParcelToFile(const char *filePath, HcParcel *parcel, int32_t osAccountId, bool encrypt)
 {
+    uint32_t plainLen = GetParcelDataSize(parcel);
+    const char *plainData = GetParcelData(parcel);
+    uint8_t *encData = NULL;
+    uint32_t encLen = 0;
+    const void *writeData = NULL;
+    int writeLen = 0;
+    if (encrypt) {
+        int32_t ret = EncryptCredFileData((const uint8_t *)plainData, plainLen, osAccountId, &encData, &encLen);
+        if (ret != IS_SUCCESS) {
+            LOGE("[CRED#DB]: encrypt cred file failed, res: %" LOG_PUB "d", ret);
+            return false;
+        }
+        writeData = encData;
+        writeLen = (int)encLen;
+    } else {
+        writeData = plainData;
+        writeLen = (int)plainLen;
+    }
     FileHandle file;
-    int ret = HcFileOpen(filePath, MODE_FILE_WRITE, &file);
-    if (ret != IS_SUCCESS) {
+    int fret = HcFileOpen(filePath, MODE_FILE_WRITE, &file);
+    if (fret != IS_SUCCESS) {
         LOGE("[CRED#DB]: Failed to open database file!");
+        if (encrypt) {
+            HcFree(encData);
+        }
         return false;
     }
     SetSecurityLabel(filePath, SECURITY_LABEL_S2);
-    int fileSize = (int)GetParcelDataSize(parcel);
-    const char *fileData = GetParcelData(parcel);
-    int writeSize = HcFileWrite(file, fileData, fileSize);
+    int writeSize = HcFileWrite(file, writeData, writeLen);
     HcFileClose(file);
-    if (writeSize == fileSize) {
-        return true;
-    } else {
+    if (encrypt) {
+        HcFree(encData);
+    }
+    if (writeSize != writeLen) {
         LOGE("[CRED#DB]: write file error!");
         return false;
     }
+    return true;
+}
+
+static void EnsureCredFileEncState(const char *filePath, int32_t osAccountId)
+{
+    if (CredFileEncKeyExist(osAccountId)) {
+        return;
+    }
+    // first load: establish per-user key unconditionally so first save is encrypted
+    if (EnsureCredFileEncKeyExist(osAccountId) != IS_SUCCESS) {
+        LOGE("[CRED#DB]: upgrade aborted, key gen failed! [Id]: %" LOG_PUB "d", osAccountId);
+        return;
+    }
+    // if a legacy plaintext file exists, encrypt-replace it so decrypt-read works
+    uint8_t *fileData = NULL;
+    int fileLen = 0;
+    if (!ReadCredFileRaw(filePath, &fileData, &fileLen)) {
+        LOGI("[CRED#DB]: no legacy file to upgrade, key established. [Id]: %" LOG_PUB "d", osAccountId);
+        return;
+    }
+    HcParcel parcel = CreateParcel(0, 0);
+    bool ok = ParcelWrite(&parcel, fileData, fileLen);
+    HcFree(fileData);
+    if (!ok) {
+        LOGE("[CRED#DB]: upgrade aborted, parcel write failed! [Id]: %" LOG_PUB "d", osAccountId);
+        DeleteParcel(&parcel);
+        return;
+    }
+    if (!SaveParcelToFile(filePath, &parcel, osAccountId, true)) {
+        LOGW("[CRED#DB]: upgrade write failed, rollback key! [Id]: %" LOG_PUB "d", osAccountId);
+        DEV_AUTH_REPORT_FAULT_EVENT_WITH_ERR_CODE(CRED_FILE_UPGRADE_EVENT,
+            PROCESS_CRED_FILE_UPGRADE, IS_ERR_FILE_IO);
+        DeleteCredFileEncKey(osAccountId);
+    } else {
+        LOGI("[CRED#DB]: cred file upgrade success. [Id]: %" LOG_PUB "d", osAccountId);
+    }
+    DeleteParcel(&parcel);
+}
+
+static bool ReadCredFileToParcel(const char *filePath, int32_t osAccountId, HcParcel *parcel)
+{
+    uint8_t *fileData = NULL;
+    int fileLen = 0;
+    if (!ReadCredFileRaw(filePath, &fileData, &fileLen)) {
+        return false;
+    }
+    bool ok = false;
+    if (CredFileEncKeyExist(osAccountId)) {
+        ok = (DecryptCredFileToParcel(fileData, (uint32_t)fileLen, osAccountId, parcel) == IS_SUCCESS);
+        if (!ok) {
+            LOGE("[CRED#DB]: decrypt cred file failed (tamper or key lost), reject!");
+            DEV_AUTH_REPORT_FAULT_EVENT_WITH_ERR_CODE(CRED_FILE_DECRYPT_EVENT, PROCESS_CRED_FILE_DECRYPT, HAL_ERR_HUKS);
+        }
+    } else {
+        ok = ParcelWrite(parcel, fileData, fileLen);
+        if (!ok) {
+            LOGE("[CRED#DB]: parcel write error!");
+        }
+    }
+    HcFree(fileData);
+    return ok;
 }
 
 static void LoadOsAccountCredDb(int32_t osAccountId)
@@ -423,7 +717,8 @@ static void LoadOsAccountCredDb(int32_t osAccountId)
         return;
     }
     HcParcel parcel = CreateParcel(0, 0);
-    if (!ReadParcelFromFile(filePath, &parcel)) {
+    EnsureCredFileEncState(filePath, osAccountId);
+    if (!ReadCredFileToParcel(filePath, osAccountId, &parcel)) {
         DeleteParcel(&parcel);
         return;
     }
@@ -472,6 +767,7 @@ static void OnOsAccountRemoved(int32_t osAccountId)
     (void)LockHcMutex(g_credMutex);
     RemoveOsAccountCredInfo(osAccountId);
     UnlockHcMutex(g_credMutex);
+    DeleteCredFileEncKey(osAccountId);
 }
 
 static bool IsOsAccountCredDataLoaded(int32_t osAccountId)
@@ -1380,13 +1676,13 @@ int32_t SaveOsAccountCredDb(int32_t osAccountId)
         UnlockHcMutex(g_credMutex);
         return IS_ERR_CONVERT_FAILED;
     }
-    if (!SaveParcelToFile(filePath, &parcel)) {
-        DeleteParcel(&parcel);
-        UnlockHcMutex(g_credMutex);
-        return IS_ERR_MEMORY_COPY;
-    }
+    bool encrypt = CredFileEncKeyExist(osAccountId);
+    bool ok = SaveParcelToFile(filePath, &parcel, osAccountId, encrypt);
     DeleteParcel(&parcel);
     UnlockHcMutex(g_credMutex);
+    if (!ok) {
+        return IS_ERR_MEMORY_COPY;
+    }
     LOGI("[CRED#DB]: Save an os account cred database successfully! [Id]: %" LOG_PUB "d", osAccountId);
     return IS_SUCCESS;
 }

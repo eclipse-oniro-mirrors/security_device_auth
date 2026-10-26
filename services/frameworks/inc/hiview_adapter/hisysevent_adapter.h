@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -56,6 +56,12 @@
 #define DIRECT_IMPORT_CREDENTIAL "directImportCredential"
 #define DIRECT_DELETE_CREDENTIAL "directDeleteCredential"
 
+#define CRED_FILE_KEY_GEN_EVENT "CredFileKeyGen"
+#define CRED_FILE_KEY_DEL_EVENT "CredFileKeyDel"
+#define CRED_FILE_UPGRADE_EVENT "CredFileUpgrade"
+#define CRED_FILE_ENCRYPT_EVENT "CredFileEncrypt"
+#define CRED_FILE_DECRYPT_EVENT "CredFileDecrypt"
+
 #define COMMON_EVENT "CommonEvent"
 #define CACHE_COMMON_EVENT "CacheCommonEvent"
 
@@ -103,6 +109,12 @@ enum DevAuthReportProcessCode {
     PROCESS_DIRECT_GENERATE_CREDENTIAL,         //4151
     PROCESS_DIRECT_IMPORT_CREDENTIAL,           //4152
     PROCESS_DIRECT_DELETE_CREDENTIAL,           //4153
+
+    PROCESS_CRED_FILE_KEY_GEN = 4160,           //4160
+    PROCESS_CRED_FILE_KEY_DEL,                  //4161
+    PROCESS_CRED_FILE_UPGRADE,                  //4162
+    PROCESS_CRED_FILE_ENCRYPT,                  //4163
+    PROCESS_CRED_FILE_DECRYPT,                  //4164
 
     PROCESS_COMMON_EVENT = 4200,                //4200
     PROCESS_CACHE_COMMON_EVENT,                 //4201

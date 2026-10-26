@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2025 Huawei Device Co., Ltd.
+ * Copyright (C) 2021-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -208,6 +208,7 @@ enum {
     IS_ERR_CONVERT_FAILED = 0x00040007,                                   // 262151
     IS_ERR_NOT_SUPPORT = 0x00040008,                                      // 262152
     IS_ERR_INIT_FAILED = 0x00040009,                                      // 262153
+    IS_ERR_FILE_IO = 0x0004000A,                                         // 262154
 
     // IS listener error
     IS_ERR_LISTENER_NOT_EXIST = 0x00050001,                               // 327681

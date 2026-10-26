@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 Huawei Device Co., Ltd.
+ * Copyright (C) 2025-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -34,6 +34,7 @@
 #define BASE_AGREE_FINISH_NO_STORAGE_PARAMS_LEN 6
 #define BASE_AGREE_PARAMS_LEN 3
 #define BASE_GENERATE_KEY_PAIR_PARAMS_LEN 6
+#define BASE_GENERATE_AES_GCM_KEY_PARAMS_LEN 6
 #define BASE_VERIFY_PARAMS_LEN 4
 #define BASE_IMPORT_PUB_KEY_PARAMS_LEN 8
 #define EXT_DE_PARAMS_LEN 1
@@ -45,7 +46,8 @@ static uint32_t g_purposeToHksKeyPurpose[] = {
     HKS_KEY_PURPOSE_MAC,
     HKS_KEY_PURPOSE_DERIVE,
     HKS_KEY_PURPOSE_SIGN | HKS_KEY_PURPOSE_VERIFY,
-    HKS_KEY_PURPOSE_AGREE
+    HKS_KEY_PURPOSE_AGREE,
+    HKS_KEY_PURPOSE_ENCRYPT | HKS_KEY_PURPOSE_DECRYPT
 };
 
 static enum HksKeyAlg g_algToHksAlgorithm[] = {
@@ -914,6 +916,37 @@ int32_t ConstructGenerateKeyPairWithStorageParams(struct HksParamSet **paramSet,
     HcFree(generateParams);
     if (res != HAL_SUCCESS) {
         LOGE("Construct generate key pair param set failed, res = %" LOG_PUB "d", res);
+    }
+    return res;
+}
+
+int32_t ConstructGenerateAesGcmKeyParams(struct HksParamSet **paramSet, uint32_t keyLen,
+    KeyPurpose purpose, const KeyParams *keyParams)
+{
+    uint32_t len = GetParamLen(keyParams->isDeStorage, BASE_GENERATE_AES_GCM_KEY_PARAMS_LEN);
+    struct HksParam *generateParams = (struct HksParam *)HcMalloc(sizeof(struct HksParam) * len, 0);
+    if (generateParams == NULL) {
+        LOGE("Malloc for generateAesGcmParams failed.");
+        return HAL_ERR_BAD_ALLOC;
+    }
+    uint32_t idx = 0;
+    generateParams[idx].tag = HKS_TAG_ALGORITHM;
+    generateParams[idx++].uint32Param = HKS_ALG_AES;
+    generateParams[idx].tag = HKS_TAG_KEY_STORAGE_FLAG;
+    generateParams[idx++].uint32Param = HKS_STORAGE_PERSISTENT;
+    generateParams[idx].tag = HKS_TAG_PURPOSE;
+    generateParams[idx++].uint32Param = g_purposeToHksKeyPurpose[purpose];
+    generateParams[idx].tag = HKS_TAG_KEY_SIZE;
+    generateParams[idx++].uint32Param = keyLen * BITS_PER_BYTE;
+    generateParams[idx].tag = HKS_TAG_BLOCK_MODE;
+    generateParams[idx++].uint32Param = HKS_MODE_GCM;
+    generateParams[idx].tag = HKS_TAG_PADDING;
+    generateParams[idx++].uint32Param = HKS_PADDING_NONE;
+    AddStorageExtParams(generateParams, keyParams->isDeStorage, &idx, keyParams->osAccountId);
+    int32_t res = ConstructParamSet(paramSet, generateParams, idx);
+    HcFree(generateParams);
+    if (res != HAL_SUCCESS) {
+        LOGE("Construct generate aes gcm key params failed, res = %" LOG_PUB "d", res);
     }
     return res;
 }

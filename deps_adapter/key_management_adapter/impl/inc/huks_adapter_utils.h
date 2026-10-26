@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 Huawei Device Co., Ltd.
+ * Copyright (C) 2025-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -130,6 +130,8 @@ int32_t ConstructAgreeParamSet(const KeyParams *keyParams, Algorithm algo, const
     struct HksParamSet **paramSet);
 int32_t ConstructGenerateKeyPairWithStorageParams(struct HksParamSet **paramSet, Algorithm algo,
     uint32_t keyLen, KeyPurpose purpose, const KeyParams *authIdParams);
+int32_t ConstructGenerateAesGcmKeyParams(struct HksParamSet **paramSet, uint32_t keyLen,
+    KeyPurpose purpose, const KeyParams *keyParams);
 int32_t CheckGenerateKeyPairParams(const KeyParams *keyParams, const ExtraInfo *exInfo, uint32_t keyLen);
 int32_t ConstructExportParams(bool isDeStorage, int32_t osAccountId, struct HksParamSet **paramSet);
 int32_t CheckExportParams(const KeyParams *keyParams, const Uint8Buff *outPubKey);

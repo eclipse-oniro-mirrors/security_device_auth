@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2025 Huawei Device Co., Ltd.
+ * Copyright (C) 2021-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -834,6 +834,33 @@ static int32_t GenerateKeyPairWithStorage(const KeyParams *keyParams, uint32_t k
     return HAL_SUCCESS;
 }
 
+static int32_t GenerateAesGcmKeyWithStorage(const KeyParams *keyParams, uint32_t keyLen, KeyPurpose purpose)
+{
+    int32_t res = CheckKeyParams(keyParams);
+    if (res != HAL_SUCCESS) {
+        return res;
+    }
+    if (keyLen == 0) {
+        LOGE("invalid keyLen: 0");
+        return HAL_ERR_INVALID_PARAM;
+    }
+    struct HksParamSet *paramSet = NULL;
+    res = ConstructGenerateAesGcmKeyParams(&paramSet, keyLen, purpose, keyParams);
+    if (res != HAL_SUCCESS) {
+        return res;
+    }
+    struct HksBlob keyAliasBlob = { keyParams->keyBuff.keyLen, keyParams->keyBuff.key };
+    LOGI("[HUKS]: HksGenerateKey(AES-GCM) enter.");
+    res = HksGenerateKey(&keyAliasBlob, paramSet, NULL);
+    FreeParamSet(paramSet);
+    LOGI("[HUKS]: HksGenerateKey(AES-GCM) quit. [Res]: %" LOG_PUB "d", res);
+    if (res != HKS_SUCCESS) {
+        LOGE("[HUKS]: HksGenerateKey(AES-GCM) fail. [Res]: %" LOG_PUB "d", res);
+        return HAL_ERR_HUKS;
+    }
+    return HAL_SUCCESS;
+}
+
 static int32_t ExportPublicKey(const KeyParams *keyParams, Uint8Buff *outPubKey)
 {
     int32_t res = CheckExportParams(keyParams, outPubKey);
@@ -1156,6 +1183,7 @@ static const AlgLoader g_huksLoader = {
     .agreeSharedSecret = AgreeSharedSecret,
     .bigNumExpMod = BigNumExpMod,
     .generateKeyPairWithStorage = GenerateKeyPairWithStorage,
+    .generateAesGcmKeyWithStorage = GenerateAesGcmKeyWithStorage,
     .exportPublicKey = ExportPublicKey,
     .sign = Sign,
     .verify = Verify,
