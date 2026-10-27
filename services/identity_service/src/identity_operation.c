@@ -1010,9 +1010,7 @@ static void ReloadCredIfNeeded(int32_t osAccountId, const CJson *reqJson, const 
     }
     bool isOpenCredRegistered = false;
     if (GetBoolFromJson(extendInfoJson, FIELD_IS_OPEN_CRED_REGISTERED, &isOpenCredRegistered) != IS_SUCCESS) {
-        LOGE("Failed to get isOpenCredRegistered!");
-        FreeJson(extendInfoJson);
-        return;
+        LOGW("Failed to get isOpenCredRegistered!");
     }
     FreeJson(extendInfoJson);
     if (isOpenCredRegistered) {
