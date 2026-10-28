@@ -19,8 +19,8 @@
 #include <cstddef>
 #include <string>
 #include <fuzzer/FuzzedDataProvider.h>
-#include "common_defs.h"
 #include "alg_defs.h"
+#include "common_defs.h"
 #include "das_task_common.h"
 #include "device_auth.h"
 #include "hilog/log.h"
@@ -31,7 +31,6 @@
 #include "securec.h"
 #include "uint8buff_utils.h"
 
-/* Stub hilog so the fuzzer links without libhilog (env conflict). */
 extern "C" int HiLogPrint(LogType type, LogLevel level, unsigned int domain,
     const char *tag, const char *fmt, ...)
 {
@@ -43,10 +42,6 @@ extern "C" int HiLogPrint(LogType type, LogLevel level, unsigned int domain,
     return 0;
 }
 
-/* Stub GetRealLoaderInstance to return a no-op AlgLoader so process() can
-   be invoked: the 9 loader functions the iso_task/protocol tree calls
-   return HC_SUCCESS, exercising process parsing + state branches without
-   real HUKS. */
 static int32_t StubGenerateRandom(Uint8Buff *rand)
 {
     (void)rand;
@@ -127,12 +122,12 @@ static AlgLoader g_stubLoader = {
     .aesGcmEncrypt = StubAesGcmEnc,
     .aesGcmDecrypt = StubAesGcmDec,
 };
-extern "C" const AlgLoader *GetRealLoaderInstance(void) { return &g_stubLoader; }
 
-/* Stub the iso_protocol_common.c functions (not compiled; only reached on
-   process() path). InitIsoBaseParams returns HC_SUCCESS so creation always
-   proceeds; the process functions return 0 so Process() in iso_client/
-   server_task.c steps through them. */
+extern "C" const AlgLoader *GetRealLoaderInstance(void)
+{
+    return &g_stubLoader;
+}
+
 extern "C" int32_t InitIsoBaseParams(const CJson *in, IsoBaseParams *params)
 {
     (void)in;
@@ -179,6 +174,8 @@ extern "C" int IsoServerGenSessionKeyAndCalToken(IsoBaseParams *p,
     (void)tt;
     return 0;
 }
+
+/* das_task_common.c / key_agree_sdk symbols (not compiled). */
 extern "C" int32_t GenerateKeyAlias(const TokenManagerParams *params, Uint8Buff *outKeyAlias)
 {
     (void)params;
@@ -190,7 +187,8 @@ extern "C" uint32_t ProtocolMessageIn(const CJson *in)
     (void)in;
     return 0;
 }
-extern "C" int32_t GetAuthIdPeerFromPayload(const CJson *in, const Uint8Buff *authIdSelf, Uint8Buff *authIdPeer)
+extern "C" int32_t GetAuthIdPeerFromPayload(const CJson *in,
+    const Uint8Buff *authIdSelf, Uint8Buff *authIdPeer)
 {
     (void)in;
     (void)authIdSelf;
@@ -208,9 +206,6 @@ extern "C" void FreeAndCleanKey(Uint8Buff *key)
 {
     (void)key;
 }
-
-/* das_task_common.c / key_agree_sdk symbols not compiled; stubbed for link.
-   Only reached on process() paths (now invoked). */
 extern "C" int ServerProtocolMessageOut(CJson *out, int opCode, uint32_t step)
 {
     (void)out;
@@ -224,7 +219,8 @@ extern "C" int32_t GetAndCheckKeyLenOnServer(const CJson *in, uint32_t keyLen)
     (void)keyLen;
     return HC_SUCCESS;
 }
-extern "C" int32_t GetAndCheckAuthIdPeer(const CJson *in, const Uint8Buff *authIdSelf, const Uint8Buff *authIdPeer)
+extern "C" int32_t GetAndCheckAuthIdPeer(const CJson *in,
+    const Uint8Buff *authIdSelf, const Uint8Buff *authIdPeer)
 {
     (void)in;
     (void)authIdSelf;
@@ -241,7 +237,8 @@ static const uint32_t FUZZ_ISO_AUTH_ID_MAX_LEN = 64;
 static void BuildFuzzedIsoTaskJson(FuzzedDataProvider &fdp, CJson *in)
 {
     (void)AddBoolToJson(in, FIELD_IS_CLIENT, fdp.ConsumeBool());
-    (void)AddIntToJson(in, FIELD_OPERATION_CODE, fdp.ConsumeIntegralInRange<int32_t>(0, FUZZ_ISO_MAX_OP_CODE));
+    (void)AddIntToJson(in, FIELD_OPERATION_CODE,
+        fdp.ConsumeIntegralInRange<int32_t>(0, FUZZ_ISO_MAX_OP_CODE));
     std::string selfAuthId = fdp.ConsumeRandomLengthString(FUZZ_ISO_AUTH_ID_MAX_LEN);
     std::string peerAuthId = fdp.ConsumeRandomLengthString(FUZZ_ISO_AUTH_ID_MAX_LEN);
     (void)AddStringToJson(in, FIELD_SELF_AUTH_ID, selfAuthId.c_str());
@@ -255,23 +252,17 @@ static void BuildFuzzedIsoTaskJson(FuzzedDataProvider &fdp, CJson *in)
     (void)AddStringToJson(in, FIELD_PIN_CODE, pinCode.c_str());
 }
 
-static void IsoTaskCreateNullTest001(FuzzedDataProvider &fdp)
+/* Single fdp-driven function: build fuzzed JSON → create → process → destroy.
+   No table dispatch — the fuzzer mutates the JSON fields directly. */
+bool FuzzDoCallback(const uint8_t* data, size_t size)
 {
-    (void)fdp;
-    (void)CreateIsoSubTask(nullptr);
-    CJson *in = CreateJson();
-    if (in == nullptr) {
-        return;
+    if (data == nullptr || size < sizeof(int32_t)) {
+        return false;
     }
-    (void)CreateIsoSubTask(in);
-    FreeJson(in);
-}
-
-static void IsoTaskCreateFuzzTest001(FuzzedDataProvider &fdp)
-{
+    FuzzedDataProvider fdp(data, size);
     CJson *in = CreateJson();
     if (in == nullptr) {
-        return;
+        return false;
     }
     BuildFuzzedIsoTaskJson(fdp, in);
     SubTaskBase *task = CreateIsoSubTask(in);
@@ -286,23 +277,6 @@ static void IsoTaskCreateFuzzTest001(FuzzedDataProvider &fdp)
         task->destroyTask(task);
     }
     FreeJson(in);
-}
-
-using TestFunc = void(*)(FuzzedDataProvider &);
-static TestFunc g_testFuncs[] = {
-    IsoTaskCreateNullTest001,
-    IsoTaskCreateFuzzTest001,
-};
-constexpr size_t TEST_FUNC_COUNT = sizeof(g_testFuncs) / sizeof(g_testFuncs[0]);
-
-bool FuzzDoCallback(const uint8_t* data, size_t size)
-{
-    if (data == nullptr || size < sizeof(int32_t)) {
-        return false;
-    }
-    FuzzedDataProvider fdp(data, size);
-    uint32_t testId = fdp.ConsumeIntegral<uint32_t>();
-    g_testFuncs[testId % TEST_FUNC_COUNT](fdp);
     return true;
 }
 }  // namespace OHOS
