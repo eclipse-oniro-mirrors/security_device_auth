@@ -2136,4 +2136,57 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth007, TestSize.Leve
     EXPECT_NE(ret, HC_SUCCESS);
 }
 
+/* P3: HandleAuthTaskStatus(FINISH) exception loop.
+ * FINISH path -> ReturnFinishData + ClearSensitiveStringInJson. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth010, TestSize.Level0)
+{
+    SetProcessTaskResult(HC_SUCCESS, FINISH);
+    CompatibleAuthSubSession *s = NewAuthSession(TYPE_CLIENT_AUTH_SUB_SESSION, STATUS_PROCESSING);
+    ASSERT_NE(s, nullptr);
+    CJson *out = CreateJson();
+    for (uint32_t i = 0; i <= 20; i++) {
+        SetControllerMode(true);
+        SetThrowExceptionIndex(i);
+        (void)HandleAuthTaskStatus(s, out, FINISH, false);
+        SetControllerMode(false);
+    }
+    FreeJson(out);
+    ResetModuleMock();
+    FreeAuthSession(s);
+}
+
+/* P3: ProcessServerAuthError exception loop.
+ * Covers ReturnErrorToPeerByTask + ClearCachedData + AddGroupErrorInfo branches. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth011, TestSize.Level0)
+{
+    CompatibleAuthSubSession *s = NewAuthSession(TYPE_SERVER_AUTH_SUB_SESSION, STATUS_PROCESSING);
+    ASSERT_NE(s, nullptr);
+    CJson *out = CreateJson();
+    AddStringToJson(out, FIELD_SEND_TO_PEER, "{}");
+    for (uint32_t i = 0; i <= 18; i++) {
+        SetControllerMode(true);
+        SetThrowExceptionIndex(i);
+        (void)ProcessServerAuthError(s, out);
+        SetControllerMode(false);
+    }
+    FreeJson(out);
+    FreeAuthSession(s);
+}
+
+/* P3: ReturnErrorToPeerBySession exception loop (via NotifyPeerAuthError).
+ * Covers PrepareErrorMsgToPeer / ReturnErrorToPeerBySession malloc branches. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth012, TestSize.Level0)
+{
+    CJson *authParam = CreateJson();
+    AddIntToJson(authParam, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
+    AddStringToJson(authParam, FIELD_REQUEST_ID, "123");
+    for (uint32_t i = 0; i <= 15; i++) {
+        SetControllerMode(true);
+        SetThrowExceptionIndex(i);
+        NotifyPeerAuthError(authParam, &g_callback);
+        SetControllerMode(false);
+    }
+    FreeJson(authParam);
+}
+
 }  // namespace
