@@ -14,6 +14,7 @@
  */
 
 #include <gtest/gtest.h>
+#include "account_task_manager_mock_control.h"
 #include "common_defs.h"
 #include "compatible_auth_sub_session.h"
 #include "compatible_auth_sub_session_common.h"
@@ -26,6 +27,7 @@
 #include "device_auth.h"
 #include "device_auth_defines.h"
 #include "exception_controller.h"
+#include "group_auth_mock.h"
 #include "hc_dev_info_mock.h"
 #include "hc_log.h"
 #include "hc_types.h"
@@ -1980,6 +1982,158 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest139, TestSize.Level0)
     EXPECT_NE(CreateClientBindSubSession(params, &g_callback, &s4), HC_SUCCESS);
     ResetGroupOpMock();
     FreeJson(params);
+}
+
+/* ===== P1: Account auth path via mock BaseGroupAuth vtable ===== */
+
+/* Drive getAuthParamsVecForServer via CreateServerAuthSubSession (success path).
+ * CreateServerAuthSubSession internally calls GetAuthInfoForServer which calls
+ * groupAuthHandle->getAuthParamsVecForServer through the vtable. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth001, TestSize.Level0)
+{
+    RegisterMockGroupAuth();
+    SetGetAuthParamsVecResult(HC_SUCCESS);
+
+    CJson *params = CreateJson();
+    ASSERT_NE(params, nullptr);
+    AddIntToJson(params, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
+    AddStringToJson(params, FIELD_SERVICE_PKG_NAME, TEST_APP_ID);
+    AddIntToJson(params, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    AddIntToJson(params, FIELD_CONFIRMATION, REQUEST_ACCEPTED);
+    AddStringToJson(params, FIELD_PIN_CODE, TEST_PIN_CODE);
+
+    CompatibleBaseSubSession *session = nullptr;
+    int32_t ret = CreateServerAuthSubSession(params, &g_callback, &session);
+    if (session != nullptr) {
+        DestroyCompatibleAuthSubSession(session);
+    }
+    FreeJson(params);
+    ResetGroupAuthMock();
+    EXPECT_EQ(ret, HC_SUCCESS);
+}
+
+/* Drive getAuthParamsVecForServer error path. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth002, TestSize.Level0)
+{
+    RegisterMockGroupAuth();
+    SetGetAuthParamsVecResult(HC_ERR_ALLOC_MEMORY);
+
+    CJson *params = CreateJson();
+    ASSERT_NE(params, nullptr);
+    AddIntToJson(params, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
+    AddStringToJson(params, FIELD_SERVICE_PKG_NAME, TEST_APP_ID);
+    AddIntToJson(params, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    AddIntToJson(params, FIELD_CONFIRMATION, REQUEST_ACCEPTED);
+
+    CompatibleBaseSubSession *session = nullptr;
+    int32_t ret = CreateServerAuthSubSession(params, &g_callback, &session);
+    if (session != nullptr) {
+        DestroyCompatibleAuthSubSession(session);
+    }
+    FreeJson(params);
+    ResetGroupAuthMock();
+    EXPECT_NE(ret, HC_SUCCESS);
+}
+
+/* P2: GetGroupAuth returns NULL when auth form is invalid.
+ * CreateServerAuthSubSession with invalid auth form -> GetAuthType returns
+ * INVALID_GROUP_AUTH_TYPE -> GetGroupAuth returns nullptr -> HC_ERR_NOT_SUPPORT. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth003, TestSize.Level0)
+{
+    RegisterMockGroupAuth();
+    CJson *params = CreateJson();
+    ASSERT_NE(params, nullptr);
+    AddIntToJson(params, FIELD_AUTH_FORM, 9999);
+    AddStringToJson(params, FIELD_SERVICE_PKG_NAME, TEST_APP_ID);
+    AddIntToJson(params, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    AddIntToJson(params, FIELD_CONFIRMATION, REQUEST_ACCEPTED);
+
+    CompatibleBaseSubSession *session = nullptr;
+    int32_t ret = CreateServerAuthSubSession(params, &g_callback, &session);
+    if (session != nullptr) {
+        DestroyCompatibleAuthSubSession(session);
+    }
+    FreeJson(params);
+    ResetGroupAuthMock();
+    EXPECT_EQ(ret, HC_ERR_NOT_SUPPORT);
+}
+
+/* P2: GetGroupAuth returns NULL for ACCOUNT_RELATED_GROUP_AUTH_TYPE (mock).
+ * Auth form IDENTICAL_ACCOUNT -> GetAuthType returns ACCOUNT_RELATED_GROUP_AUTH_TYPE
+ * -> mock GetGroupAuth returns NULL -> HC_ERR_NOT_SUPPORT. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth004, TestSize.Level0)
+{
+    RegisterMockGroupAuth();
+    CJson *params = CreateJson();
+    ASSERT_NE(params, nullptr);
+    AddIntToJson(params, FIELD_AUTH_FORM, AUTH_FORM_IDENTICAL_ACCOUNT);
+    AddStringToJson(params, FIELD_SERVICE_PKG_NAME, TEST_APP_ID);
+    AddIntToJson(params, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    AddIntToJson(params, FIELD_CONFIRMATION, REQUEST_ACCEPTED);
+
+    CompatibleBaseSubSession *session = nullptr;
+    int32_t ret = CreateServerAuthSubSession(params, &g_callback, &session);
+    if (session != nullptr) {
+        DestroyCompatibleAuthSubSession(session);
+    }
+    FreeJson(params);
+    ResetGroupAuthMock();
+    EXPECT_EQ(ret, HC_ERR_NOT_SUPPORT);
+}
+
+/* Drive onFinish via mock group auth (with callback).
+ * ProcessTask returns FINISH -> ReturnFinishData -> groupAuth->onFinish. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth005, TestSize.Level0)
+{
+    RegisterMockGroupAuth();
+    SetOnFinishCallCallback(true);
+    SetProcessTaskResult(HC_SUCCESS, FINISH);
+
+    CompatibleAuthSubSession *s = NewAuthSession(TYPE_CLIENT_AUTH_SUB_SESSION, STATUS_PROCESSING);
+    ASSERT_NE(s, nullptr);
+    CJson *in = CreateJson();
+    int32_t status = 0;
+    (void)ProcessClientAuthSubSession((CompatibleBaseSubSession *)s, in, nullptr, &status);
+    FreeJson(in);
+    FreeAuthSession(s);
+    ResetGroupAuthMock();
+    ResetModuleMock();
+}
+
+/* Drive combineServerConfirmParams via CombineAuthConfirmData (success path). */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth006, TestSize.Level0)
+{
+    RegisterMockGroupAuth();
+    SetCombineServerConfirmResult(HC_SUCCESS);
+
+    CJson *confirmation = CreateJson();
+    AddIntToJson(confirmation, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    CJson *dataFromClient = CreateJson();
+    AddIntToJson(dataFromClient, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
+
+    int32_t ret = CombineAuthConfirmData(confirmation, dataFromClient);
+    FreeJson(confirmation);
+    FreeJson(dataFromClient);
+    ResetGroupAuthMock();
+    EXPECT_EQ(ret, HC_SUCCESS);
+}
+
+/* Drive combineServerConfirmParams error path. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth007, TestSize.Level0)
+{
+    RegisterMockGroupAuth();
+    SetCombineServerConfirmResult(HC_ERR_INVALID_PARAMS);
+
+    CJson *confirmation = CreateJson();
+    AddIntToJson(confirmation, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    CJson *dataFromClient = CreateJson();
+    AddIntToJson(dataFromClient, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
+
+    int32_t ret = CombineAuthConfirmData(confirmation, dataFromClient);
+    FreeJson(confirmation);
+    FreeJson(dataFromClient);
+    ResetGroupAuthMock();
+    EXPECT_NE(ret, HC_SUCCESS);
 }
 
 }  // namespace

@@ -17,6 +17,18 @@
 
 #include "device_auth_defines.h"
 
+static bool g_hasAccountPlugin = false;
+
+void SetHasAccountPlugin(bool enabled)
+{
+    g_hasAccountPlugin = enabled;
+}
+
+void ResetAccountTaskMock(void)
+{
+    g_hasAccountPlugin = false;
+}
+
 int32_t InitAccountTaskManager(void)
 {
     return HC_ERR_NOT_SUPPORT;
@@ -26,7 +38,7 @@ void DestroyAccountTaskManager(void) {}
 
 bool HasAccountPlugin(void)
 {
-    return false;
+    return g_hasAccountPlugin;
 }
 
 int32_t ExecuteAccountAuthCmd(int32_t osAccountId, int32_t cmdId, const CJson *in, CJson *out)
