@@ -29,6 +29,7 @@
 #include "device_auth_defines.h"
 #include "dev_auth_module_manager_mock.h"
 #include "group_auth_data_operation_mock.h"
+#include "group_auth_mock.h"
 #include "group_data_manager_mock.h"
 #include "group_operation_common_mock.h"
 #include "account_task_manager_mock_control.h"
@@ -365,6 +366,13 @@ bool FuzzDoCallback(const uint8_t *data, size_t size)
     if (data == nullptr || size < 1) {
         return false;
     }
+    /* Register mock group auth once (provides BaseGroupAuth vtable so
+     * GetGroupAuth() returns a non-NULL handle with valid function pointers) */
+    static bool g_mockRegistered = false;
+    if (!g_mockRegistered) {
+        RegisterMockGroupAuth();
+        g_mockRegistered = true;
+    }
     FuzzedDataProvider fdp(data, size);
 
     /* Step 1: randomly reset some mocks (state control) */
@@ -388,6 +396,7 @@ bool FuzzDoCallback(const uint8_t *data, size_t size)
     ResetModuleMock();
     ResetGaMock();
     ResetDbMock();
+    ResetGroupAuthMock();
     return true;
 }
 
