@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026 Huawei Device Co., Ltd.
+ * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,6 +16,8 @@
 #include "compatible_sub_session_fuzzer.h"
 
 #include <fuzzer/FuzzedDataProvider.h>
+
+#include "securec.h"
 
 #include "compatible_auth_sub_session.h"
 #include "compatible_auth_sub_session_common.h"
@@ -36,12 +38,11 @@
 #include "hc_log.h"
 #include "hc_types.h"
 #include "json_utils.h"
-#include "securec.h"
 
 namespace OHOS {
 namespace {
 
-#define FUZZ_MAX_FIELD_LEN 128
+static const int32_t MOCK_OS_ACCOUNT_ID = 100;
 
 static bool OnTransmit(int64_t requestId, const uint8_t *data, uint32_t dataLen)
 {
@@ -81,7 +82,7 @@ static char *OnBindRequest(int64_t requestId, int operationCode, const char *req
     CJson *json = CreateJson();
     if (json != nullptr) {
         AddIntToJson(json, FIELD_CONFIRMATION, REQUEST_ACCEPTED);
-        AddIntToJson(json, FIELD_OS_ACCOUNT_ID, 100);
+        AddIntToJson(json, FIELD_OS_ACCOUNT_ID, MOCK_OS_ACCOUNT_ID);
         AddStringToJson(json, FIELD_PIN_CODE, "123456");
         AddStringToJson(json, FIELD_DEVICE_ID, "MockAuthId2");
         AddStringToJson(json, FIELD_SERVICE_PKG_NAME, "MockAppId");
@@ -326,8 +327,16 @@ static CJson *BuildRandomProcessInput(FuzzedDataProvider &fdp)
     return in;
 }
 
-/* ===== FDP-driven test functions ===== */
+/* ===== FDP-driven fuzz entry functions =====
+ * Each function targets a specific V1 sub-session API entry point.
+ * FDP drives all inputs: JSON field presence/values, mock return values,
+ * and whether to additionally call Process after Create succeeds. */
 
+/* FuzzCreateClientBind: test CreateClientBindSubSession + optional ProcessClientBindSubSession.
+ * Target: compatible_bind_sub_session.c Create path (CheckInvitePeer/CheckJoinPeer/
+ *         CreateBaseBindSubSession/GenerateKeyPairIfNeeded/InitChannel/GenerateBaseBindParams)
+ *         + Process path (CreateAndProcessClientBindTask/HandleBindTaskStatus).
+ * Flow: FDP → BuildRandomBindParams → Create → [FDP] Process? → Destroy. */
 static void FuzzCreateClientBind(FuzzedDataProvider &fdp)
 {
     CJson *params = BuildRandomBindParams(fdp);
@@ -353,6 +362,10 @@ static void FuzzCreateClientBind(FuzzedDataProvider &fdp)
     FreeJson(params);
 }
 
+/* FuzzCreateServerBind: test CreateServerBindSubSession + optional ProcessServerBindSubSession.
+ * Target: CreateServerBindSubSession (CheckAcceptRequest/CheckServerStatusIfNotInvite/
+ *         GenerateServerBindParams) + ProcessServerBindSubSession (CreateAndProcessServerBindTask).
+ * Flow: FDP → BuildRandomBindParams → Create → [FDP] Process? → Destroy. */
 static void FuzzCreateServerBind(FuzzedDataProvider &fdp)
 {
     CJson *params = BuildRandomBindParams(fdp);
@@ -374,6 +387,10 @@ static void FuzzCreateServerBind(FuzzedDataProvider &fdp)
     FreeJson(params);
 }
 
+/* FuzzCreateClientAuth: test CreateClientAuthSubSession + optional ProcessClientAuthSubSession.
+ * Target: compatible_auth_sub_session.c (CheckInputAuthParams/CreateClientAuthSubSessionInner/
+ *         GetAuthParamsVec/GetCandidateGroups) + ProcessClientAuthSubSession (HandleAuthTaskStatus).
+ * Flow: FDP → BuildRandomAuthParams → Create → [FDP] Process? → Destroy. */
 static void FuzzCreateClientAuth(FuzzedDataProvider &fdp)
 {
     CJson *params = BuildRandomAuthParams(fdp);
@@ -399,6 +416,10 @@ static void FuzzCreateClientAuth(FuzzedDataProvider &fdp)
     FreeJson(params);
 }
 
+/* FuzzCreateServerAuth: test CreateServerAuthSubSession + optional ProcessServerAuthSubSession.
+ * Target: CreateServerAuthSubSession (GetAuthInfoForServer/GetGroupAuth vtable) +
+ *         ProcessServerAuthSubSession (CreateAndProcessServerAuthTask).
+ * Flow: FDP → BuildRandomAuthParams → Create → [FDP] Process? → Destroy. */
 static void FuzzCreateServerAuth(FuzzedDataProvider &fdp)
 {
     CJson *params = BuildRandomAuthParams(fdp);
@@ -420,6 +441,9 @@ static void FuzzCreateServerAuth(FuzzedDataProvider &fdp)
     FreeJson(params);
 }
 
+/* FuzzDispatcher: test CreateCompatibleSubSession + ProcessCompatibleSubSession + Destroy.
+ * Target: compatible_sub_session.c dispatcher switch/NULL checks (was 0% before fuzz).
+ * Flow: FDP → random sessionType (0-10) → Create → Process → Destroy. */
 static void FuzzDispatcher(FuzzedDataProvider &fdp)
 {
     CJson *params = BuildRandomBindParams(fdp);
@@ -443,6 +467,10 @@ static void FuzzDispatcher(FuzzedDataProvider &fdp)
     FreeJson(params);
 }
 
+/* FuzzGenerateBaseBindParams: test GenerateBaseBindParams with manual session construction.
+ * Target: compatible_bind_sub_session_common.c (AddPinCode/AddProtocolExpandVal/
+ *         AddGroupAndDevInfo/GenerateParamsByInput/GenerateParamsByDatabase).
+ * Flow: HcMalloc session → FDP → BuildRandomBindParams → GenerateBaseBindParams → cleanup. */
 static void FuzzGenerateBaseBindParams(FuzzedDataProvider &fdp)
 {
     CompatibleBindSubSession *session =

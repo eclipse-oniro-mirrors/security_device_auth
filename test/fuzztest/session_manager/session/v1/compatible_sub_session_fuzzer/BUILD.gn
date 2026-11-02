@@ -1,4 +1,4 @@
-# Copyright (c) 2026 Huawei Device Co., Ltd.
+# Copyright (C) 2026 Huawei Device Co., Ltd.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -75,15 +75,24 @@ ohos_unittest("CompatibleSubSessionFuzzTest") {
 
   sources += group_auth_files
   sources -= [ "${group_auth_path}/src/group_auth_manager/group_auth_common/group_auth_data_operation.c" ]
-  sources += [ "//base/security/device_auth/test/mock_inner/services/legacy/group_auth/group_auth_manager/group_auth_common/group_auth_data_operation_mock.c" ]
+  sources += [
+    "//base/security/device_auth/test/mock_inner/services/legacy/group_auth/",
+    "group_auth_manager/group_auth_common/group_auth_data_operation_mock.c",
+  ]
   sources += group_auth_account_unrelated_files
   sources += group_manager_files
   sources -= [ "${group_manager_path}/src/group_operation/group_operation_common/group_operation_common.c" ]
-  sources += [ "//base/security/device_auth/test/mock_inner/services/legacy/group_manager/group_operation/group_operation_common/group_operation_common_mock.c" ]
+  sources += [
+    "//base/security/device_auth/test/mock_inner/services/legacy/group_manager/",
+    "group_operation/group_operation_common/group_operation_common_mock.c",
+  ]
   sources += group_manager_peer_to_peer_files
   sources -= [ "${group_data_manager_path}/src/group_data_manager.c" ]
   sources -= [ "${group_data_manager_path}/src/group_data_manager_util.c" ]
-  sources += [ "//base/security/device_auth/test/mock_inner/services/data_manager/group_data_manager/group_data_manager_mock.c" ]
+  sources += [
+    "//base/security/device_auth/test/mock_inner/services/data_manager/",
+    "group_data_manager/group_data_manager_mock.c",
+  ]
   sources += authenticators_p2p_files
   sources += authenticators_p2p_iso_files
   sources += authenticators_p2p_pake_files
