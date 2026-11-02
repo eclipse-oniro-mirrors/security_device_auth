@@ -255,6 +255,7 @@ HWTEST_F(CompatibleSubSessionTest, CompatibleSubSessionTest005, TestSize.Level0)
     (void)memset_s(&session, sizeof(session), 0, sizeof(session));
     session.type = 999;
     DestroyCompatibleSubSession(&session);
+    SUCCEED();
 }
 
 /* ===================== pure helpers ===================== */

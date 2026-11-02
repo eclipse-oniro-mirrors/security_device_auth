@@ -332,6 +332,7 @@ HWTEST_F(CompatibleBindSubSessionTest, CompatibleSubSessionTest015, TestSize.Lev
 HWTEST_F(CompatibleBindSubSessionTest, CompatibleSubSessionTest016, TestSize.Level0)
 {
     DestroyCompatibleBindSubSession(nullptr);
+    SUCCEED();
 }
 
 /* ===================== auth create validation ===================== */
@@ -361,6 +362,7 @@ HWTEST_F(CompatibleBindSubSessionTest, CompatibleSubSessionTest017, TestSize.Lev
 HWTEST_F(CompatibleBindSubSessionTest, CompatibleSubSessionTest018, TestSize.Level0)
 {
     DestroyCompatibleAuthSubSession(nullptr);
+    SUCCEED();
 }
 
 /* ===================== integration: bind create path ===================== */

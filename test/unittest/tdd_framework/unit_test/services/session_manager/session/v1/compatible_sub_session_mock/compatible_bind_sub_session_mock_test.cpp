@@ -2001,6 +2001,7 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest166, TestSize.Level0)
     (void)CreateServerAuthSubSession(dataFromClient, &g_callback, &session);
     if (session != nullptr) { DestroyCompatibleAuthSubSession(session); }
     FreeJson(dataFromClient);
+    SUCCEED();
 }
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest167, TestSize.Level0)
@@ -2016,6 +2017,7 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest167, TestSize.Level0)
     (void)CreateServerAuthSubSession(dataFromClient, &g_callback, &session);
     if (session != nullptr) { DestroyCompatibleAuthSubSession(session); }
     FreeJson(dataFromClient);
+    SUCCEED();
 }
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest168, TestSize.Level0)

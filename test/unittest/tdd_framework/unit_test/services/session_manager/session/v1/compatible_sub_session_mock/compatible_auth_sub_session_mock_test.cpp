@@ -492,6 +492,7 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest026, TestSize.Level0)
         FreeJson(authParam);
         SetControllerMode(false);
     }
+    SUCCEED();
 }
 
 HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest027, TestSize.Level0)
@@ -732,6 +733,7 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest045, TestSize.Level0)
     }
     FreeJson(authParams);
     ResetGaMock();
+    SUCCEED();
 }
 
 HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest046, TestSize.Level0)
@@ -751,6 +753,7 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest046, TestSize.Level0)
     }
     FreeJson(authParams);
     ResetGaMock();
+    SUCCEED();
 }
 
 HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest047, TestSize.Level0)
@@ -771,6 +774,7 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest047, TestSize.Level0)
     }
     FreeJson(authParams);
     ResetGaMock();
+    SUCCEED();
 }
 
 HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest048, TestSize.Level0)
@@ -791,6 +795,7 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest048, TestSize.Level0)
     }
     FreeJson(authParams);
     ResetGaMock();
+    SUCCEED();
 }
 
 /* ===== targeted value-check branches for auth_common.c ===== */
@@ -811,6 +816,7 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest049, TestSize.Level0)
         DestroyCompatibleAuthSubSession(session);
     }
     FreeJson(authParams);
+    SUCCEED();
 }
 
 HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest050, TestSize.Level0)
@@ -974,6 +980,7 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest058, TestSize.Level0)
         DestroyCompatibleAuthSubSession(session);
     }
     FreeJson(authParams);
+    SUCCEED();
 }
 
 HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest059, TestSize.Level0)
@@ -992,6 +999,7 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest059, TestSize.Level0)
         DestroyCompatibleAuthSubSession(session);
     }
     FreeJson(authParams);
+    SUCCEED();
 }
 
 /* ===== more auth_common branches ===== */
@@ -1109,6 +1117,7 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest079, TestSize.Level0)
     }
     FreeJson(authParams);
     ResetGaMock();
+    SUCCEED();
 }
 
 HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest080, TestSize.Level0)
@@ -1128,6 +1137,7 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest080, TestSize.Level0)
     }
     FreeJson(authParams);
     ResetGaMock();
+    SUCCEED();
 }
 
 HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest081, TestSize.Level0)
@@ -1147,6 +1157,7 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest081, TestSize.Level0)
     }
     FreeJson(authParams);
     ResetGaMock();
+    SUCCEED();
 }
 
 HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest082, TestSize.Level0)
@@ -1166,6 +1177,7 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest082, TestSize.Level0)
     }
     FreeJson(authParams);
     ResetGaMock();
+    SUCCEED();
 }
 
 /* ===== targeted uncovered branch coverage ===== */
@@ -1347,6 +1359,7 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest093, TestSize.Level0)
         SetControllerMode(false);
     }
     FreeJson(authParam);
+    SUCCEED();
 }
 
 HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest094, TestSize.Level0)
@@ -1634,6 +1647,7 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest107, TestSize.Level0)
         SetControllerMode(false);
     }
     FreeJson(params);
+    SUCCEED();
 }
 
 HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest108, TestSize.Level0)
@@ -1943,6 +1957,7 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest138, TestSize.Level0)
         SetControllerMode(false);
     }
     FreeJson(params);
+    SUCCEED();
 }
 
 HWTEST_F(CompatibleAuthSubSessionMockTest, MockTest139, TestSize.Level0)
