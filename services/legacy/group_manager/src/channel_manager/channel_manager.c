@@ -73,7 +73,12 @@ int32_t OpenChannel(ChannelType channelType, const CJson *jsonParams, int64_t re
             return HC_ERR_JSON_GET;
         }
         int64_t channelId = DEFAULT_CHANNEL_ID;
-        int32_t result = GetSoftBusInstance()->openChannel(connectParams, requestId, &channelId);
+        SoftBus *softBus = GetSoftBusInstance();
+        if (softBus == NULL) {
+            LOGE("SoftBus instance is null!");
+            return HC_ERR_CHANNEL_NOT_EXIST;
+        }
+        int32_t result = softBus->openChannel(connectParams, requestId, &channelId);
         if (result != HC_SUCCESS) {
             return HC_ERR_CHANNEL_NOT_EXIST;
         }
@@ -87,7 +92,10 @@ int32_t OpenChannel(ChannelType channelType, const CJson *jsonParams, int64_t re
 void CloseChannel(ChannelType channelType, int64_t channelId)
 {
     if (channelType == SOFT_BUS) {
-        GetSoftBusInstance()->closeChannel(channelId);
+        SoftBus *softBus = GetSoftBusInstance();
+        if (softBus != NULL) {
+            softBus->closeChannel(channelId);
+        }
     }
 }
 
@@ -100,7 +108,12 @@ int32_t HcSendMsg(ChannelType channelType, int64_t requestId, int64_t channelId,
         }
         return HC_ERR_TRANSMIT_FAIL;
     } else if (channelType == SOFT_BUS) {
-        return GetSoftBusInstance()->sendMsg(channelId, (uint8_t *)data, HcStrlen(data) + 1);
+        SoftBus *softBus = GetSoftBusInstance();
+        if (softBus == NULL) {
+            LOGE("SoftBus instance is null!");
+            return HC_ERR_CHANNEL_NOT_EXIST;
+        }
+        return softBus->sendMsg(channelId, (uint8_t *)data, HcStrlen(data) + 1);
     } else {
         return HC_ERR_CHANNEL_NOT_EXIST;
     }
@@ -109,6 +122,9 @@ int32_t HcSendMsg(ChannelType channelType, int64_t requestId, int64_t channelId,
 void NotifyBindResult(ChannelType channelType, int64_t channelId)
 {
     if (channelType == SOFT_BUS) {
-        GetSoftBusInstance()->notifyResult(channelId);
+        SoftBus *softBus = GetSoftBusInstance();
+        if (softBus != NULL) {
+            softBus->notifyResult(channelId);
+        }
     }
 }
