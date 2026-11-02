@@ -28,6 +28,7 @@
 #include "device_auth_defines.h"
 #include "exception_controller.h"
 #include "group_auth_mock.h"
+#include "group_data_manager_mock.h"
 #include "hc_dev_info_mock.h"
 #include "hc_log.h"
 #include "hc_types.h"
@@ -2205,5 +2206,81 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth012, TestSize.Leve
     SUCCEED();
 }
 
+
+
+/* ===== Auth high-difficulty: AddGeneralParams/FillAuthParams/AddUpgradeFlag ===== */
+
+/* AddGeneralParams + FillAuthParams: exception injection via GetAuthParamsVec. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth013, TestSize.Level0)
+{
+    CJson *param = CreateJson();
+    AddIntToJson(param, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
+    AddStringToJson(param, FIELD_SERVICE_PKG_NAME, TEST_SERVICE_PKG_NAME);
+    AddBoolToJson(param, FIELD_IS_CLIENT, true);
+    AddStringToJson(param, FIELD_REQUEST_ID, "123");
+    AddStringToJson(param, FIELD_PEER_CONN_DEVICE_ID, TEST_UDID_SERVER);
+    ParamsVecForAuth vec;
+    CreateAuthParamsList(&vec);
+    SetIsGroupExistByGroupId(true);
+    SetGetTrustedDevInfoByIdResult(HC_SUCCESS);
+    SetGaGetLocalDeviceInfoResult(HC_SUCCESS);
+    SetGaIsGroupAccessible(true);
+    SetQueryGroupsResult(HC_SUCCESS);
+    for (uint32_t i = 0; i <= 35; i++) {
+        SetControllerMode(true);
+        SetThrowExceptionIndex(i);
+        (void)GetAuthParamsVec(TEST_OS_ACCOUNT_ID, param, &vec);
+        SetControllerMode(false);
+    }
+    DestroyAuthParamsList(&vec);
+    FreeJson(param);
+    ResetGroupOpMock();
+    ResetGaMock();
+    ResetDbMock();
+    SUCCEED();
+}
+
+/* DelTrustDeviceOnAuthErrorV1: auth error with peer device in group. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth014, TestSize.Level0)
+{
+    CompatibleAuthSubSession *s = NewAuthSession(TYPE_CLIENT_AUTH_SUB_SESSION, STATUS_PROCESSING);
+    ASSERT_NE(s, nullptr);
+    CJson *authParam = CreateJson();
+    AddIntToJson(authParam, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
+    AddStringToJson(authParam, FIELD_GROUP_ID, TEST_GROUP_ID);
+    AddBoolToJson(authParam, FIELD_IS_CLIENT, true);
+    const void *ptr = authParam;
+    s->paramsList.pushBack(&s->paramsList, &ptr);
+    s->currentIndex = 0;
+    SetProcessTaskResult(HC_ERROR, IGNORE_MSG);
+    CJson *in = CreateJson();
+    AddIntToJson(in, FIELD_RESULT_CODE, PEER_ACCOUNT_NOT_MATCH);
+    int32_t status = 0;
+    (void)ProcessClientAuthSubSession((CompatibleBaseSubSession *)s, in, nullptr, &status);
+    FreeJson(in);
+    FreeAuthSession(s);
+    ResetModuleMock();
+    SUCCEED();
+}
+
+/* GenerateGroupErrorMsg + InformPeerProcessError: extended exception loop. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth015, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddStringToJson(params, FIELD_SERVICE_PKG_NAME, TEST_APP_ID);
+    AddStringToJson(params, FIELD_GROUP_ID, TEST_GROUP_ID);
+    AddIntToJson(params, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    int64_t chId = DEFAULT_CHANNEL_ID;
+    AddByteToJson(params, FIELD_CHANNEL_ID, (const uint8_t *)&chId, sizeof(int64_t));
+    AddIntToJson(params, FIELD_CHANNEL_TYPE, SERVICE_CHANNEL);
+    for (uint32_t i = 0; i <= 25; i++) {
+        SetControllerMode(true);
+        SetThrowExceptionIndex(i);
+        InformPeerProcessError(999, params, &g_callback, HC_ERR_INVALID_PARAMS);
+        SetControllerMode(false);
+    }
+    FreeJson(params);
+    SUCCEED();
+}
 
 }  // namespace
