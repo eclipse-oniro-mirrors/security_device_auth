@@ -132,9 +132,10 @@ ohos_unittest("CompatibleSubSessionFuzzTest") {
   cflags += [
     "-DDEV_AUTH_WORK_THREAD_STACK_SIZE=${device_auth_hichain_thread_stack_size}",
     "-DMAX_AUTH_SESSION_COUNT=${max_auth_session_count}",
+    "--coverage",
     "-fsanitize=fuzzer-no-link",
   ]
-  ldflags = [ "-fsanitize=fuzzer" ]
+  ldflags = [ "--coverage", "-fsanitize=fuzzer" ]
   if (target_cpu == "arm") {
     cflags += [ "-DBINDER_IPC_32BIT" ]
   }
