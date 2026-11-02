@@ -47,6 +47,8 @@ void SetGetGroupTypeFromDbResult(int32_t ret) { g_getGroupTypeFromDbRet = ret; }
 void SetAssertGroupTypeMatchResult(int32_t ret) { g_assertGroupTypeMatchRet = ret; }
 void SetIsGroupExistByGroupId(bool exist) { g_isGroupExistByGroupId = exist; }
 void SetIsUserTypeValid(bool valid) { g_isUserTypeValid = valid; }
+void SetIsGroupVisibilityValid(bool valid) { g_isGroupVisibilityValid = valid; }
+void SetIsExpireTimeValid(bool valid) { g_isExpireTimeValid = valid; }
 void ResetGroupOpMock(void)
 {
     g_checkGroupExistRet = HC_SUCCESS;

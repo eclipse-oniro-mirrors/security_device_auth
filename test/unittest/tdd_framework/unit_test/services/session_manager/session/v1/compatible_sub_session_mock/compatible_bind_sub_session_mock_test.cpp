@@ -659,6 +659,8 @@ void SetGetGroupTypeFromDbResult(int32_t ret);
 void SetAssertGroupTypeMatchResult(int32_t ret);
 void SetIsGroupExistByGroupId(bool exist);
 void SetIsUserTypeValid(bool valid);
+void SetIsGroupVisibilityValid(bool valid);
+void SetIsExpireTimeValid(bool valid);
 void SetAddGroupResult(int32_t ret);
 void SetAddTrustedDeviceResult(int32_t ret);
 void SetQueryGroupsResult(int32_t ret);
@@ -1648,7 +1650,7 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest218, TestSize.Level0)
 {
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
     ASSERT_NE(s, nullptr);
-    s->opCode = MEMBER_INVITE;
+    s->opCode = MEMBER_JOIN;
     CJson *jsonParams = CreateJson();
     AddStringToJson(jsonParams, FIELD_PIN_CODE, TEST_PIN_CODE);
     AddStringToJson(jsonParams, FIELD_GROUP_ID, TEST_GROUP_ID);
@@ -1657,11 +1659,13 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest218, TestSize.Level0)
     AddIntToJson(jsonParams, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
     AddStringToJson(jsonParams, FIELD_DEVICE_ID, TEST_AUTH_ID);
     AddIntToJson(jsonParams, FIELD_USER_TYPE, 9999);
-    SetIsGroupExistByGroupId(true);
+    SetIsGroupExistByGroupId(false);
+    SetIsUserTypeValid(false);
     int32_t ret = GenerateBaseBindParams(TEST_OS_ACCOUNT_ID, CLIENT, jsonParams, s);
     FreeJson(jsonParams);
     ResetGroupOpMock();
     FreeBindSession(s);
+    SetIsUserTypeValid(true);
     EXPECT_NE(ret, HC_SUCCESS);
 }
 
@@ -1671,21 +1675,21 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest219, TestSize.Level0)
 {
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
     ASSERT_NE(s, nullptr);
-    s->opCode = MEMBER_INVITE;
+    s->opCode = MEMBER_JOIN;
     CJson *jsonParams = CreateJson();
     AddStringToJson(jsonParams, FIELD_PIN_CODE, TEST_PIN_CODE);
     AddStringToJson(jsonParams, FIELD_GROUP_ID, TEST_GROUP_ID);
     AddStringToJson(jsonParams, FIELD_GROUP_NAME, TEST_GROUP_NAME);
     AddIntToJson(jsonParams, FIELD_GROUP_TYPE, PEER_TO_PEER_GROUP);
     AddIntToJson(jsonParams, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
-    AddStringToJson(jsonParams, FIELD_DEVICE_ID, TEST_AUTH_ID);
-    AddIntToJson(jsonParams, FIELD_USER_TYPE, DEVICE_TYPE_ACCESSORY);
     AddIntToJson(jsonParams, FIELD_GROUP_VISIBILITY, 9999);
-    SetIsGroupExistByGroupId(true);
+    SetIsGroupExistByGroupId(false);
+    SetIsGroupVisibilityValid(false);
     int32_t ret = GenerateBaseBindParams(TEST_OS_ACCOUNT_ID, CLIENT, jsonParams, s);
     FreeJson(jsonParams);
     ResetGroupOpMock();
     FreeBindSession(s);
+    SetIsGroupVisibilityValid(true);
     EXPECT_NE(ret, HC_SUCCESS);
 }
 
@@ -1695,22 +1699,22 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest220, TestSize.Level0)
 {
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
     ASSERT_NE(s, nullptr);
-    s->opCode = MEMBER_INVITE;
+    s->opCode = MEMBER_JOIN;
     CJson *jsonParams = CreateJson();
     AddStringToJson(jsonParams, FIELD_PIN_CODE, TEST_PIN_CODE);
     AddStringToJson(jsonParams, FIELD_GROUP_ID, TEST_GROUP_ID);
     AddStringToJson(jsonParams, FIELD_GROUP_NAME, TEST_GROUP_NAME);
     AddIntToJson(jsonParams, FIELD_GROUP_TYPE, PEER_TO_PEER_GROUP);
     AddIntToJson(jsonParams, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
-    AddStringToJson(jsonParams, FIELD_DEVICE_ID, TEST_AUTH_ID);
-    AddIntToJson(jsonParams, FIELD_USER_TYPE, DEVICE_TYPE_ACCESSORY);
     AddIntToJson(jsonParams, FIELD_GROUP_VISIBILITY, GROUP_VISIBILITY_PUBLIC);
     AddIntToJson(jsonParams, FIELD_EXPIRE_TIME, -999);
-    SetIsGroupExistByGroupId(true);
+    SetIsGroupExistByGroupId(false);
+    SetIsExpireTimeValid(false);
     int32_t ret = GenerateBaseBindParams(TEST_OS_ACCOUNT_ID, CLIENT, jsonParams, s);
     FreeJson(jsonParams);
     ResetGroupOpMock();
     FreeBindSession(s);
+    SetIsExpireTimeValid(true);
     EXPECT_NE(ret, HC_SUCCESS);
 }
 
@@ -1841,15 +1845,13 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest227, TestSize.Level0)
 {
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
     ASSERT_NE(s, nullptr);
-    s->opCode = MEMBER_INVITE;
+    s->opCode = MEMBER_JOIN;
     CJson *jsonParams = CreateJson();
     AddStringToJson(jsonParams, FIELD_PIN_CODE, TEST_PIN_CODE);
     AddStringToJson(jsonParams, FIELD_GROUP_ID, TEST_GROUP_ID);
     AddStringToJson(jsonParams, FIELD_GROUP_NAME, TEST_GROUP_NAME);
     AddIntToJson(jsonParams, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
-    AddStringToJson(jsonParams, FIELD_DEVICE_ID, TEST_AUTH_ID);
-    AddIntToJson(jsonParams, FIELD_USER_TYPE, DEVICE_TYPE_ACCESSORY);
-    SetIsGroupExistByGroupId(true);
+    SetIsGroupExistByGroupId(false);
     int32_t ret = GenerateBaseBindParams(TEST_OS_ACCOUNT_ID, CLIENT, jsonParams, s);
     FreeJson(jsonParams);
     ResetGroupOpMock();

@@ -30,6 +30,8 @@ void SetGetGroupTypeFromDbResult(int32_t ret);
 void SetAssertGroupTypeMatchResult(int32_t ret);
 void SetIsGroupExistByGroupId(bool exist);
 void SetIsUserTypeValid(bool valid);
+void SetIsGroupVisibilityValid(bool valid);
+void SetIsExpireTimeValid(bool valid);
 void ResetGroupOpMock(void);
 #ifdef __cplusplus
 }
