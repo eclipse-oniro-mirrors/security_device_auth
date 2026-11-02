@@ -912,6 +912,52 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest077, TestSize.Level0)
     FreeJson(params);
     ResetGroupOpMock();
 }
+
+/* ===== Reach 80%% effective branch rate: +7 branches from 4 targeted tests ===== */
+
+/* DestroyCompatibleSubSession(NULL) -> covers session==NULL true branch.
+ * DestroyCompatibleSubSession with invalid type -> covers default branch. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest182, TestSize.Level0)
+{
+    DestroyCompatibleSubSession(NULL);
+    CompatibleBaseSubSession fake;
+    fake.type = (SubSessionTypeValue)999;
+    DestroyCompatibleSubSession(&fake);
+    SUCCEED();
+}
+
+/* ProcessCompatibleSubSession(NULL,...) -> covers NULL param check.
+ * ProcessCompatibleSubSession with invalid type -> covers default branch. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest183, TestSize.Level0)
+{
+    CJson *in = CreateJson();
+    CJson *out = nullptr;
+    int32_t status = 0;
+    EXPECT_EQ(ProcessCompatibleSubSession(NULL, in, &out, &status), HC_ERR_INVALID_PARAMS);
+    CompatibleBaseSubSession fake;
+    fake.type = (SubSessionTypeValue)999;
+    EXPECT_EQ(ProcessCompatibleSubSession(&fake, in, &out, &status), HC_ERR_INVALID_PARAMS);
+    FreeJson(in);
+}
+
+/* CombineAuthConfirmData with invalid osAccountId -> covers INVALID_OS_ACCOUNT branch. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest184, TestSize.Level0)
+{
+    CJson *confirmation = CreateJson();
+    AddIntToJson(confirmation, FIELD_OS_ACCOUNT_ID, INVALID_OS_ACCOUNT);
+    CJson *dataFromClient = CreateJson();
+    AddIntToJson(dataFromClient, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
+    EXPECT_EQ(CombineAuthConfirmData(confirmation, dataFromClient), HC_ERR_INVALID_PARAMS);
+    FreeJson(confirmation);
+    FreeJson(dataFromClient);
+}
+
+/* GetDuplicatePkgName(NULL) -> covers pkgName==NULL branch. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest185, TestSize.Level0)
+{
+    EXPECT_EQ(GetDuplicatePkgName(NULL), nullptr);
+}
+
 }  // namespace
 
 /* ===== bind CheckPeerStatus + TryAddPeerUserType branches ===== */
