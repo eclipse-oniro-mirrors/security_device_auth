@@ -1949,6 +1949,331 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest230, TestSize.Level0)
     SUCCEED();
 }
 
+
+/* ===== Correct field name tests: cover reachable branches in compatible_bind_sub_session.c =====
+ * Previous tests used FIELD_SERVICE_PKG_NAME instead of FIELD_APP_ID, causing early failure
+ * at GetDuplicateAppId and never reaching target branches. These tests use correct fields. */
+
+/* CreateClientBindSubSession(MEMBER_INVITE) missing FIELD_GROUP_ID.
+ * Flow: L851 ok -> L857 ok -> L862 CheckClientStatus -> CheckInvitePeer -> L36 groupId==NULL.
+ * Covers: L36 (groupId==NULL) in CheckInvitePeer. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest231, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddStringToJson(params, FIELD_REQUEST_ID, "123");
+    AddIntToJson(params, FIELD_OPERATION_CODE, MEMBER_INVITE);
+    AddStringToJson(params, FIELD_APP_ID, TEST_APP_ID);
+    AddIntToJson(params, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    CompatibleBaseSubSession *session = nullptr;
+    EXPECT_NE(CreateClientBindSubSession(params, &g_callback, &session), HC_SUCCESS);
+    if (session != nullptr) { DestroyCompatibleBindSubSession(session); }
+    FreeJson(params);
+}
+
+/* CreateClientBindSubSession(MEMBER_INVITE) missing FIELD_APP_ID.
+ * Flow: L851 ok -> L857 ok -> L862 CheckClientStatus -> CheckInvitePeer -> L40 appId==NULL.
+ * Covers: L40 (appId==NULL) in CheckInvitePeer. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest232, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddStringToJson(params, FIELD_REQUEST_ID, "123");
+    AddIntToJson(params, FIELD_OPERATION_CODE, MEMBER_INVITE);
+    AddStringToJson(params, FIELD_GROUP_ID, TEST_GROUP_ID);
+    AddIntToJson(params, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    CompatibleBaseSubSession *session = nullptr;
+    EXPECT_NE(CreateClientBindSubSession(params, &g_callback, &session), HC_SUCCESS);
+    if (session != nullptr) { DestroyCompatibleBindSubSession(session); }
+    FreeJson(params);
+}
+
+/* CreateClientBindSubSession(MEMBER_INVITE) missing FIELD_OS_ACCOUNT_ID.
+ * Flow: L851 ok -> L857 ok -> L862 CheckClientStatus -> CheckInvitePeer -> L46 osAccountId fail.
+ * Covers: L46 (GetIntFromJson OS_ACCOUNT_ID fail) in CheckInvitePeer. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest233, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddStringToJson(params, FIELD_REQUEST_ID, "123");
+    AddIntToJson(params, FIELD_OPERATION_CODE, MEMBER_INVITE);
+    AddStringToJson(params, FIELD_GROUP_ID, TEST_GROUP_ID);
+    AddStringToJson(params, FIELD_APP_ID, TEST_APP_ID);
+    CompatibleBaseSubSession *session = nullptr;
+    EXPECT_NE(CreateClientBindSubSession(params, &g_callback, &session), HC_SUCCESS);
+    if (session != nullptr) { DestroyCompatibleBindSubSession(session); }
+    FreeJson(params);
+}
+
+/* CreateClientBindSubSession(MEMBER_JOIN) missing FIELD_GROUP_TYPE.
+ * Flow: L851 ok -> L857 ok -> L862 CheckClientStatus -> CheckJoinPeer -> L66 groupType fail.
+ * Covers: L66 (GetIntFromJson GROUP_TYPE fail) in CheckJoinPeer. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest234, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddStringToJson(params, FIELD_REQUEST_ID, "123");
+    AddIntToJson(params, FIELD_OPERATION_CODE, MEMBER_JOIN);
+    CompatibleBaseSubSession *session = nullptr;
+    EXPECT_NE(CreateClientBindSubSession(params, &g_callback, &session), HC_SUCCESS);
+    if (session != nullptr) { DestroyCompatibleBindSubSession(session); }
+    FreeJson(params);
+}
+
+/* CreateClientBindSubSession with invalid OPERATION_CODE (MEMBER_DELETE).
+ * Flow: L851 ok -> L857 ok -> L862 CheckClientStatus -> default -> L80 invalid operation.
+ * Covers: L75 switch default case in CheckClientStatus. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest235, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddStringToJson(params, FIELD_REQUEST_ID, "123");
+    AddIntToJson(params, FIELD_OPERATION_CODE, MEMBER_DELETE);
+    CompatibleBaseSubSession *session = nullptr;
+    EXPECT_NE(CreateClientBindSubSession(params, &g_callback, &session), HC_SUCCESS);
+    if (session != nullptr) { DestroyCompatibleBindSubSession(session); }
+    FreeJson(params);
+}
+
+/* CreateClientBindSubSession(MEMBER_JOIN) missing FIELD_OS_ACCOUNT_ID.
+ * Flow: L851 ok -> L857 ok -> L862 CheckClientStatus -> CheckJoinPeer ok ->
+ *       L868 CreateBaseBindSubSession -> L118 osAccountId fail.
+ * Covers: L118 (GetIntFromJson OS_ACCOUNT_ID fail) in CreateBaseBindSubSession. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest236, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddStringToJson(params, FIELD_REQUEST_ID, "123");
+    AddIntToJson(params, FIELD_OPERATION_CODE, MEMBER_JOIN);
+    AddIntToJson(params, FIELD_GROUP_TYPE, PEER_TO_PEER_GROUP);
+    AddStringToJson(params, FIELD_APP_ID, TEST_APP_ID);
+    CompatibleBaseSubSession *session = nullptr;
+    EXPECT_NE(CreateClientBindSubSession(params, &g_callback, &session), HC_SUCCESS);
+    if (session != nullptr) { DestroyCompatibleBindSubSession(session); }
+    FreeJson(params);
+}
+
+/* CreateClientBindSubSession(MEMBER_JOIN) missing FIELD_GROUP_ID.
+ * Flow: L851 ok -> L857 ok -> L862 CheckClientStatus -> CheckJoinPeer ok ->
+ *       L868 CreateBaseBindSubSession ok -> L874 GenerateKeyPairIfNeeded(CLIENT, MEMBER_JOIN) ->
+ *       L152 IsCreateGroupNeeded=true -> L156 groupId==NULL.
+ * Covers: L157 (groupId==NULL) in GenerateKeyPairIfNeeded. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest237, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddStringToJson(params, FIELD_REQUEST_ID, "123");
+    AddIntToJson(params, FIELD_OPERATION_CODE, MEMBER_JOIN);
+    AddIntToJson(params, FIELD_GROUP_TYPE, PEER_TO_PEER_GROUP);
+    AddStringToJson(params, FIELD_APP_ID, TEST_APP_ID);
+    AddIntToJson(params, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    CompatibleBaseSubSession *session = nullptr;
+    EXPECT_NE(CreateClientBindSubSession(params, &g_callback, &session), HC_SUCCESS);
+    if (session != nullptr) { DestroyCompatibleBindSubSession(session); }
+    FreeJson(params);
+}
+
+/* CreateClientBindSubSession(MEMBER_JOIN) with ProcessKeyPair error.
+ * Flow: ... -> L874 GenerateKeyPairIfNeeded -> L162 ProcessKeyPair returns HC_ERROR -> L164.
+ * Covers: L164 (result != HC_SUCCESS) in GenerateKeyPairIfNeeded. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest238, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddStringToJson(params, FIELD_REQUEST_ID, "123");
+    AddIntToJson(params, FIELD_OPERATION_CODE, MEMBER_JOIN);
+    AddIntToJson(params, FIELD_GROUP_TYPE, PEER_TO_PEER_GROUP);
+    AddStringToJson(params, FIELD_APP_ID, TEST_APP_ID);
+    AddIntToJson(params, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    AddStringToJson(params, FIELD_GROUP_ID, TEST_GROUP_ID);
+    SetProcessKeyPairResult(HC_ERROR);
+    CompatibleBaseSubSession *session = nullptr;
+    EXPECT_NE(CreateClientBindSubSession(params, &g_callback, &session), HC_SUCCESS);
+    if (session != nullptr) { DestroyCompatibleBindSubSession(session); }
+    FreeJson(params);
+    ResetGroupOpMock();
+}
+
+/* CreateServerBindSubSession(MEMBER_JOIN) missing FIELD_GROUP_ID.
+ * Flow: L898 ok -> L903 ok -> L907 CreateBaseBindSubSession ok -> L913 InitChannel ok ->
+ *       L920 GenerateServerBindParams -> L219 CheckAcceptRequest ok ->
+ *       L223 CheckServerStatusIfNotInvite -> L175 groupId==NULL.
+ * Covers: L175 (groupId==NULL) in CheckServerStatusIfNotInvite. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest239, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddStringToJson(params, FIELD_REQUEST_ID, "123");
+    AddIntToJson(params, FIELD_GROUP_OP, MEMBER_JOIN);
+    AddIntToJson(params, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    AddStringToJson(params, FIELD_APP_ID, TEST_APP_ID);
+    int64_t chId = DEFAULT_CHANNEL_ID;
+    AddByteToJson(params, FIELD_CHANNEL_ID, (const uint8_t *)&chId, sizeof(int64_t));
+    AddIntToJson(params, FIELD_CHANNEL_TYPE, SERVICE_CHANNEL);
+    AddIntToJson(params, FIELD_CONFIRMATION, REQUEST_ACCEPTED);
+    CompatibleBaseSubSession *session = nullptr;
+    EXPECT_NE(CreateServerBindSubSession(params, &g_callback, &session), HC_SUCCESS);
+    if (session != nullptr) { DestroyCompatibleBindSubSession(session); }
+    FreeJson(params);
+}
+
+/* CreateServerBindSubSession(MEMBER_JOIN) missing FIELD_CONN_DEVICE_ID.
+ * Flow: ... -> L223 CheckServerStatusIfNotInvite -> L175 ok -> L180 ok -> L186 peerUdid==NULL.
+ * Covers: L186 (peerUdid==NULL) in CheckServerStatusIfNotInvite. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest240, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddStringToJson(params, FIELD_REQUEST_ID, "123");
+    AddIntToJson(params, FIELD_GROUP_OP, MEMBER_JOIN);
+    AddIntToJson(params, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    AddStringToJson(params, FIELD_APP_ID, TEST_APP_ID);
+    AddStringToJson(params, FIELD_GROUP_ID, TEST_GROUP_ID);
+    int64_t chId = DEFAULT_CHANNEL_ID;
+    AddByteToJson(params, FIELD_CHANNEL_ID, (const uint8_t *)&chId, sizeof(int64_t));
+    AddIntToJson(params, FIELD_CHANNEL_TYPE, SERVICE_CHANNEL);
+    AddIntToJson(params, FIELD_CONFIRMATION, REQUEST_ACCEPTED);
+    CompatibleBaseSubSession *session = nullptr;
+    EXPECT_NE(CreateServerBindSubSession(params, &g_callback, &session), HC_SUCCESS);
+    if (session != nullptr) { DestroyCompatibleBindSubSession(session); }
+    FreeJson(params);
+}
+
+
+/* ===== Cover bind_sub_session_common.c reachable branches ===== */
+
+/* GenerateBaseBindParams(CLIENT, MEMBER_JOIN) missing FIELD_GROUP_TYPE.
+ * Flow: L657 AddPinCode ok -> L658 AddProtocolExpandVal ok ->
+ *   L659 AddGroupAndDevInfo -> L380 groupId ok -> L390 IsCreateGroupNeeded(CLIENT, MEMBER_JOIN)=true
+ *   -> L391 GenerateParamsByInput -> AddGroupInfoToSessionParams -> L133 AddGroupId ok ->
+ *   L134 AddGroupName ok -> L135 AddGroupOwnerIfExist ok -> L136 AddGroupTypeIfValid -> L85 fail.
+ * Covers: L85 (GetIntFromJson GROUP_TYPE fail) in AddGroupTypeIfValid. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest241, TestSize.Level0)
+{
+    CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
+    ASSERT_NE(s, nullptr);
+    s->opCode = MEMBER_JOIN;
+    CJson *jsonParams = CreateJson();
+    AddStringToJson(jsonParams, FIELD_PIN_CODE, TEST_PIN_CODE);
+    AddStringToJson(jsonParams, FIELD_GROUP_ID, TEST_GROUP_ID);
+    AddStringToJson(jsonParams, FIELD_GROUP_NAME, TEST_GROUP_NAME);
+    AddIntToJson(jsonParams, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    AddStringToJson(jsonParams, FIELD_APP_ID, TEST_APP_ID);
+    /* NO FIELD_GROUP_TYPE */
+    SetIsGroupExistByGroupId(false);
+    int32_t ret = GenerateBaseBindParams(TEST_OS_ACCOUNT_ID, CLIENT, jsonParams, s);
+    FreeJson(jsonParams);
+    ResetGroupOpMock();
+    FreeBindSession(s);
+    EXPECT_NE(ret, HC_SUCCESS);
+}
+
+/* GenerateBaseBindParams(CLIENT, MEMBER_JOIN) with invalid FIELD_GROUP_TYPE.
+ * Flow: ... -> L136 AddGroupTypeIfValid -> L85 ok -> L89 groupType != PEER_TO_PEER_GROUP -> fail.
+ * Covers: L89 (groupType != PEER_TO_PEER_GROUP) in AddGroupTypeIfValid. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest242, TestSize.Level0)
+{
+    CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
+    ASSERT_NE(s, nullptr);
+    s->opCode = MEMBER_JOIN;
+    CJson *jsonParams = CreateJson();
+    AddStringToJson(jsonParams, FIELD_PIN_CODE, TEST_PIN_CODE);
+    AddStringToJson(jsonParams, FIELD_GROUP_ID, TEST_GROUP_ID);
+    AddStringToJson(jsonParams, FIELD_GROUP_NAME, TEST_GROUP_NAME);
+    AddIntToJson(jsonParams, FIELD_GROUP_TYPE, COMPATIBLE_GROUP);
+    AddIntToJson(jsonParams, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    AddStringToJson(jsonParams, FIELD_APP_ID, TEST_APP_ID);
+    SetIsGroupExistByGroupId(false);
+    int32_t ret = GenerateBaseBindParams(TEST_OS_ACCOUNT_ID, CLIENT, jsonParams, s);
+    FreeJson(jsonParams);
+    ResetGroupOpMock();
+    FreeBindSession(s);
+    EXPECT_NE(ret, HC_SUCCESS);
+}
+
+/* GenerateBaseBindParams(CLIENT, MEMBER_JOIN) missing FIELD_GROUP_NAME.
+ * Flow: ... -> L133 AddGroupId ok -> L134 AddGroupName -> L61 groupName==NULL -> fail.
+ * Covers: L61 (groupName==NULL) in AddGroupName. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest243, TestSize.Level0)
+{
+    CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
+    ASSERT_NE(s, nullptr);
+    s->opCode = MEMBER_JOIN;
+    CJson *jsonParams = CreateJson();
+    AddStringToJson(jsonParams, FIELD_PIN_CODE, TEST_PIN_CODE);
+    AddStringToJson(jsonParams, FIELD_GROUP_ID, TEST_GROUP_ID);
+    /* NO FIELD_GROUP_NAME */
+    AddIntToJson(jsonParams, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    AddStringToJson(jsonParams, FIELD_APP_ID, TEST_APP_ID);
+    SetIsGroupExistByGroupId(false);
+    int32_t ret = GenerateBaseBindParams(TEST_OS_ACCOUNT_ID, CLIENT, jsonParams, s);
+    FreeJson(jsonParams);
+    ResetGroupOpMock();
+    FreeBindSession(s);
+    EXPECT_NE(ret, HC_SUCCESS);
+}
+
+
+/* ===== Cover compatible_sub_session.c dispatcher branches ===== */
+
+/* CreateCompatibleSubSession with NULL params.
+ * Covers: L26 (NULL check true arc) in CreateCompatibleSubSession. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest244, TestSize.Level0)
+{
+    int32_t ret = CreateCompatibleSubSession(TYPE_CLIENT_BIND_SUB_SESSION, nullptr, &g_callback, nullptr);
+    EXPECT_EQ(ret, HC_ERR_INVALID_PARAMS);
+}
+
+/* CreateCompatibleSubSession with invalid session type.
+ * Covers: L60 (default case) in CreateCompatibleSubSession switch. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest245, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddStringToJson(params, FIELD_REQUEST_ID, "123");
+    CompatibleBaseSubSession *session = nullptr;
+    int32_t ret = CreateCompatibleSubSession((SubSessionTypeValue)999, params, &g_callback, &session);
+    EXPECT_EQ(ret, HC_ERR_INVALID_PARAMS);
+    FreeJson(params);
+}
+
+/* ProcessCompatibleSubSession with NULL params.
+ * Covers: L47 (NULL check true arc) in ProcessCompatibleSubSession. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest246, TestSize.Level0)
+{
+    CJson *in = CreateJson();
+    CJson *out = nullptr;
+    int32_t status = 0;
+    int32_t ret = ProcessCompatibleSubSession(nullptr, in, &out, &status);
+    EXPECT_EQ(ret, HC_ERR_INVALID_PARAMS);
+    FreeJson(in);
+}
+
+/* ProcessCompatibleSubSession with invalid session type.
+ * Covers: default case in ProcessCompatibleSubSession switch. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest247, TestSize.Level0)
+{
+    CompatibleBindSubSession *s = NewBindSession((SubSessionTypeValue)999, STATUS_INITIAL);
+    ASSERT_NE(s, nullptr);
+    CJson *in = CreateJson();
+    CJson *out = nullptr;
+    int32_t status = 0;
+    int32_t ret = ProcessCompatibleSubSession((CompatibleBaseSubSession *)s, in, &out, &status);
+    EXPECT_EQ(ret, HC_ERR_INVALID_PARAMS);
+    FreeJson(in);
+    if (out != nullptr) { FreeJson(out); }
+    FreeBindSession(s);
+}
+
+/* DestroyCompatibleSubSession with NULL session.
+ * Covers: L69 (NULL check true arc) in DestroyCompatibleSubSession. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest248, TestSize.Level0)
+{
+    DestroyCompatibleSubSession(nullptr);
+    SUCCEED();
+}
+
+/* DestroyCompatibleSubSession with invalid session type.
+ * Covers: default case in DestroyCompatibleSubSession switch. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest249, TestSize.Level0)
+{
+    CompatibleBindSubSession *s = NewBindSession((SubSessionTypeValue)999, STATUS_INITIAL);
+    ASSERT_NE(s, nullptr);
+    DestroyCompatibleSubSession((CompatibleBaseSubSession *)s);
+    /* NewBindSession with invalid type may not properly init, so manually free */
+    FreeBindSession(s);
+    SUCCEED();
+}
+
 }  // namespace
 
 /* ===== bind CheckPeerStatus + TryAddPeerUserType branches ===== */

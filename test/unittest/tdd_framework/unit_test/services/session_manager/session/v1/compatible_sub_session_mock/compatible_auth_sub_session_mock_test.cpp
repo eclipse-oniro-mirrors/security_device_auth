@@ -2366,4 +2366,137 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth034, TestSize.Leve
     SUCCEED();
 }
 
+
+/* ===== Correct field name auth tests ===== */
+
+/* CreateClientAuthSubSession with invalid FIELD_KEY_LENGTH (too small).
+ * Flow: L376 CheckInputAuthParams -> L31 keyLen=5 -> L32 (5 < 16) TRUE.
+ * Covers: L32 (keyLen < MIN_KEY_LENGTH) in CheckInputAuthParams. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth035, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddStringToJson(params, FIELD_SERVICE_PKG_NAME, TEST_SERVICE_PKG_NAME);
+    AddIntToJson(params, FIELD_KEY_LENGTH, 5);
+    CompatibleBaseSubSession *session = nullptr;
+    EXPECT_NE(CreateClientAuthSubSession(params, &g_callback, &session), HC_SUCCESS);
+    if (session != nullptr) { DestroyCompatibleAuthSubSession(session); }
+    FreeJson(params);
+}
+
+/* CreateClientAuthSubSession with invalid FIELD_KEY_LENGTH (too large).
+ * Flow: L376 CheckInputAuthParams -> L31 keyLen=2048 -> L32 (2048 > 1024) TRUE.
+ * Covers: L32 (keyLen > MAX_KEY_LENGTH) in CheckInputAuthParams. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth036, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddStringToJson(params, FIELD_SERVICE_PKG_NAME, TEST_SERVICE_PKG_NAME);
+    AddIntToJson(params, FIELD_KEY_LENGTH, 2048);
+    CompatibleBaseSubSession *session = nullptr;
+    EXPECT_NE(CreateClientAuthSubSession(params, &g_callback, &session), HC_SUCCESS);
+    if (session != nullptr) { DestroyCompatibleAuthSubSession(session); }
+    FreeJson(params);
+}
+
+/* CreateClientAuthSubSession missing FIELD_OS_ACCOUNT_ID (after CheckInputAuthParams ok).
+ * Flow: L376 ok -> L381 ok -> L386 GetIntFromJson(OS_ACCOUNT_ID) fail.
+ * Covers: L386 (osAccountId fail) in CreateClientAuthSubSession. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth037, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddStringToJson(params, FIELD_SERVICE_PKG_NAME, TEST_SERVICE_PKG_NAME);
+    CompatibleBaseSubSession *session = nullptr;
+    EXPECT_NE(CreateClientAuthSubSession(params, &g_callback, &session), HC_SUCCESS);
+    if (session != nullptr) { DestroyCompatibleAuthSubSession(session); }
+    FreeJson(params);
+}
+
+
+/* ===== Cover auth_sub_session_common.c reachable branches ===== */
+
+/* CreateClientAuthSubSession with no FIELD_IS_CLIENT.
+ * Flow: L376 ok -> L386 ok -> L390 CreateClientAuthSubSessionInner ->
+ *   L48 GetAuthParamsVec -> L587 groupId=NULL -> L591 GetCandidateAuthInfo ->
+ *   L278 groupId=NULL -> L280 GetCandidateGroups -> L94 GetBoolFromJson(IS_CLIENT) fail -> L95.
+ * Covers: L95 (isClient fail) in GetCandidateGroups, L54-57 (empty auth params). */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth038, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddStringToJson(params, FIELD_SERVICE_PKG_NAME, TEST_SERVICE_PKG_NAME);
+    AddIntToJson(params, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    /* NO FIELD_GROUP_ID, NO FIELD_SERVICE_TYPE, NO FIELD_IS_CLIENT */
+    SetHasAccountPlugin(false);
+    CompatibleBaseSubSession *session = nullptr;
+    int32_t ret = CreateClientAuthSubSession(params, &g_callback, &session);
+    EXPECT_NE(ret, HC_SUCCESS);
+    if (session != nullptr) { DestroyCompatibleAuthSubSession(session); }
+    FreeJson(params);
+    ResetGaMock();
+    ResetDbMock();
+}
+
+/* CreateClientAuthSubSession with FIELD_IS_CLIENT=true, no IS_DEVICE_LEVEL.
+ * Flow: ... -> GetCandidateGroups -> L94 ok -> L98 false -> L101 GetAccountRelatedCandidateGroups
+ *   -> L42 groupAuth=NULL -> return -> L102 GetAccountUnrelatedCandidateGroups
+ *   -> L76 !isDeviceLevel(false) -> true -> L80 QueryGroups.
+ * Covers: L76 (true arc), L42-43 (groupAuth NULL), L80 (QueryGroups ok). */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth039, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddStringToJson(params, FIELD_SERVICE_PKG_NAME, TEST_SERVICE_PKG_NAME);
+    AddIntToJson(params, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    AddBoolToJson(params, FIELD_IS_CLIENT, true);
+    /* NO FIELD_GROUP_ID, NO FIELD_IS_DEVICE_LEVEL */
+    SetHasAccountPlugin(false);
+    SetQueryGroupsResult(HC_SUCCESS);
+    CompatibleBaseSubSession *session = nullptr;
+    int32_t ret = CreateClientAuthSubSession(params, &g_callback, &session);
+    EXPECT_NE(ret, HC_SUCCESS);
+    if (session != nullptr) { DestroyCompatibleAuthSubSession(session); }
+    FreeJson(params);
+    ResetGaMock();
+    ResetDbMock();
+}
+
+/* CreateClientAuthSubSession with QueryGroups error.
+ * Flow: ... -> L102 GetAccountUnrelatedCandidateGroups -> L80 QueryGroups fails -> return.
+ * Covers: L80 (QueryGroups fail true arc). */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth040, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddStringToJson(params, FIELD_SERVICE_PKG_NAME, TEST_SERVICE_PKG_NAME);
+    AddIntToJson(params, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    AddBoolToJson(params, FIELD_IS_CLIENT, true);
+    SetHasAccountPlugin(false);
+    SetQueryGroupsResult(HC_ERROR);
+    CompatibleBaseSubSession *session = nullptr;
+    int32_t ret = CreateClientAuthSubSession(params, &g_callback, &session);
+    EXPECT_NE(ret, HC_SUCCESS);
+    if (session != nullptr) { DestroyCompatibleAuthSubSession(session); }
+    FreeJson(params);
+    ResetGaMock();
+    ResetDbMock();
+}
+
+
+/* CreateClientAuthSubSession with FIELD_IS_DEVICE_LEVEL=true + FIELD_IS_CLIENT=true.
+ * Flow: ... -> GetCandidateGroups -> L98 isDeviceLevel && isClient = true -> L99.
+ * Covers: L98 true arc, L99 (device-level candidate groups path). */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth041, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddStringToJson(params, FIELD_SERVICE_PKG_NAME, TEST_SERVICE_PKG_NAME);
+    AddIntToJson(params, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    AddBoolToJson(params, FIELD_IS_CLIENT, true);
+    AddBoolToJson(params, FIELD_IS_DEVICE_LEVEL, true);
+    SetHasAccountPlugin(false);
+    SetQueryGroupsResult(HC_SUCCESS);
+    CompatibleBaseSubSession *session = nullptr;
+    int32_t ret = CreateClientAuthSubSession(params, &g_callback, &session);
+    EXPECT_NE(ret, HC_SUCCESS);
+    if (session != nullptr) { DestroyCompatibleAuthSubSession(session); }
+    FreeJson(params);
+    ResetGaMock();
+    ResetDbMock();
+}
+
 }  // namespace
