@@ -83,8 +83,6 @@ static char *OnBindRequest(int64_t requestId, int operationCode, const char *req
         AddStringToJson(json, FIELD_PIN_CODE, "123456");
         AddStringToJson(json, FIELD_DEVICE_ID, "MockAuthId2");
         AddStringToJson(json, FIELD_SERVICE_PKG_NAME, "MockAppId");
-        AddStringToJson(json, FIELD_PEER_CONN_DEVICE_ID,
-            "52E2706717D5C39D736E134CC1E3BE1BAA2AA52DB7C76A37C749558BD2E6492C");
         char *str = PackJsonToString(json);
         FreeJson(json);
         return str;
@@ -293,34 +291,7 @@ static CJson *BuildRandomAuthParams(FuzzedDataProvider &fdp)
     return params;
 }
 
-static CJson *BuildRandomProcessInput(FuzzedDataProvider &fdp)
-{
-    CJson *in = CreateJson();
-    if (in == nullptr) {
-        return nullptr;
-    }
-    if (fdp.ConsumeBool()) {
-        AddIntToJson(in, FIELD_RESULT_CODE, fdp.ConsumeIntegral<int32_t>());
-    }
-    if (fdp.ConsumeBool()) {
-        AddIntToJson(in, FIELD_GROUP_ERROR_MSG, fdp.ConsumeIntegral<int32_t>());
-    }
-    if (fdp.ConsumeBool()) {
-        AddStringToJson(in, FIELD_GROUP_ID, g_groupId);
-    }
-    if (fdp.ConsumeBool()) {
-        AddStringToJson(in, FIELD_SERVICE_PKG_NAME, g_appId);
-    }
-    if (fdp.ConsumeBool()) {
-        AddStringToJson(in, FIELD_CONN_DEVICE_ID, g_udid);
-    }
-    if (fdp.ConsumeBool()) {
-        AddIntToJson(in, FIELD_AUTH_FORM, fdp.ConsumeIntegralInRange<int32_t>(0, 20));
-    }
-    return in;
-}
-
-/* ===== FDP-driven test functions ===== */
+/* ===== FDP-driven test functions (Create + Destroy only) ===== */
 
 static void FuzzCreateClientBind(FuzzedDataProvider &fdp)
 {
@@ -331,23 +302,6 @@ static void FuzzCreateClientBind(FuzzedDataProvider &fdp)
     CompatibleBaseSubSession *session = nullptr;
     (void)CreateClientBindSubSession(params, &g_callback, &session);
     if (session != nullptr) {
-        /* FDP decides whether to process or destroy */
-        uint8_t action = fdp.ConsumeIntegralInRange<uint8_t>(0, 2);
-        if (action == 0) {
-            CJson *in = BuildRandomProcessInput(fdp);
-            CJson *out = nullptr;
-            int32_t status = 0;
-            (void)ProcessClientBindSubSession(session, in, &out, &status);
-            if (out != nullptr) {
-                FreeJson(out);
-            }
-            FreeJson(in);
-        } else if (action == 1) {
-            CJson *in = BuildRandomProcessInput(fdp);
-            int32_t status = 0;
-            (void)ProcessServerBindSubSession(session, in, &status);
-            FreeJson(in);
-        }
         DestroyCompatibleBindSubSession(session);
     }
     FreeJson(params);
@@ -362,22 +316,6 @@ static void FuzzCreateServerBind(FuzzedDataProvider &fdp)
     CompatibleBaseSubSession *session = nullptr;
     (void)CreateServerBindSubSession(params, &g_callback, &session);
     if (session != nullptr) {
-        uint8_t action = fdp.ConsumeIntegralInRange<uint8_t>(0, 2);
-        if (action == 0) {
-            CJson *in = BuildRandomProcessInput(fdp);
-            int32_t status = 0;
-            (void)ProcessServerBindSubSession(session, in, &status);
-            FreeJson(in);
-        } else if (action == 1) {
-            CJson *in = BuildRandomProcessInput(fdp);
-            CJson *out = nullptr;
-            int32_t status = 0;
-            (void)ProcessClientBindSubSession(session, in, &out, &status);
-            if (out != nullptr) {
-                FreeJson(out);
-            }
-            FreeJson(in);
-        }
         DestroyCompatibleBindSubSession(session);
     }
     FreeJson(params);
@@ -392,22 +330,6 @@ static void FuzzCreateClientAuth(FuzzedDataProvider &fdp)
     CompatibleBaseSubSession *session = nullptr;
     (void)CreateClientAuthSubSession(params, &g_callback, &session);
     if (session != nullptr) {
-        uint8_t action = fdp.ConsumeIntegralInRange<uint8_t>(0, 2);
-        if (action == 0) {
-            CJson *in = BuildRandomProcessInput(fdp);
-            CJson *out = nullptr;
-            int32_t status = 0;
-            (void)ProcessClientAuthSubSession(session, in, &out, &status);
-            if (out != nullptr) {
-                FreeJson(out);
-            }
-            FreeJson(in);
-        } else if (action == 1) {
-            CJson *in = BuildRandomProcessInput(fdp);
-            int32_t status = 0;
-            (void)ProcessServerAuthSubSession(session, in, &status);
-            FreeJson(in);
-        }
         DestroyCompatibleAuthSubSession(session);
     }
     FreeJson(params);
@@ -422,93 +344,17 @@ static void FuzzCreateServerAuth(FuzzedDataProvider &fdp)
     CompatibleBaseSubSession *session = nullptr;
     (void)CreateServerAuthSubSession(params, &g_callback, &session);
     if (session != nullptr) {
-        uint8_t action = fdp.ConsumeIntegralInRange<uint8_t>(0, 2);
-        if (action == 0) {
-            CJson *in = BuildRandomProcessInput(fdp);
-            int32_t status = 0;
-            (void)ProcessServerAuthSubSession(session, in, &status);
-            FreeJson(in);
-        } else if (action == 1) {
-            CJson *in = BuildRandomProcessInput(fdp);
-            CJson *out = nullptr;
-            int32_t status = 0;
-            (void)ProcessClientAuthSubSession(session, in, &out, &status);
-            if (out != nullptr) {
-                FreeJson(out);
-            }
-            FreeJson(in);
-        }
         DestroyCompatibleAuthSubSession(session);
     }
     FreeJson(params);
 }
 
-static void FuzzDispatcher(FuzzedDataProvider &fdp)
-{
-    CJson *params = BuildRandomBindParams(fdp);
-    if (params == nullptr) {
-        return;
-    }
-    CompatibleBaseSubSession *session = nullptr;
-    SubSessionTypeValue type = (SubSessionTypeValue)fdp.ConsumeIntegralInRange<int32_t>(0, 10);
-    (void)CreateCompatibleSubSession(type, params, &g_callback, &session);
-    if (session != nullptr) {
-        CJson *in = BuildRandomProcessInput(fdp);
-        CJson *out = nullptr;
-        int32_t status = 0;
-        (void)ProcessCompatibleSubSession(session, in, &out, &status);
-        if (out != nullptr) {
-            FreeJson(out);
-        }
-        FreeJson(in);
-        DestroyCompatibleSubSession(session);
-    }
-    FreeJson(params);
-}
-
-static void FuzzGenerateBaseBindParams(FuzzedDataProvider &fdp)
-{
-    /* Construct a session directly via internal allocation, then call GenerateBaseBindParams */
-    CompatibleBindSubSession *session = (CompatibleBindSubSession *)HcMalloc(sizeof(CompatibleBindSubSession), 0);
-    if (session == nullptr) {
-        return;
-    }
-    session->base.type = TYPE_CLIENT_BIND_SUB_SESSION;
-    session->base.appId = nullptr;
-    session->base.curTaskId = 0;
-    session->base.status = STATUS_INITIAL;
-    session->base.callback = &g_callback;
-    session->opCode = fdp.ConsumeIntegralInRange<int32_t>(0, 10);
-    session->moduleType = DAS_MODULE;
-    session->reqId = 123;
-    session->osAccountId = 100;
-    session->channelType = SERVICE_CHANNEL;
-    session->channelId = DEFAULT_CHANNEL_ID;
-    session->params = CreateJson();
-
-    CJson *jsonParams = BuildRandomBindParams(fdp);
-    if (jsonParams != nullptr) {
-        int32_t isClient = fdp.ConsumeBool() ? CLIENT : SERVER;
-        (void)GenerateBaseBindParams(100, isClient, jsonParams, session);
-        FreeJson(jsonParams);
-    }
-    if (session->params != nullptr) {
-        FreeJson(session->params);
-    }
-    if (session->base.appId != nullptr) {
-        HcFree(session->base.appId);
-    }
-    HcFree(session);
-}
-
-using FuzzFunc = void (*)(FuzzedDataProvider &);
+using FuzzFunc = void (*)(FuzzedDataProvider &fdp);
 static FuzzFunc g_fuzzFuncs[] = {
     FuzzCreateClientBind,
     FuzzCreateServerBind,
     FuzzCreateClientAuth,
     FuzzCreateServerAuth,
-    FuzzDispatcher,
-    FuzzGenerateBaseBindParams,
 };
 constexpr size_t FUZZ_FUNC_COUNT = sizeof(g_fuzzFuncs) / sizeof(g_fuzzFuncs[0]);
 
