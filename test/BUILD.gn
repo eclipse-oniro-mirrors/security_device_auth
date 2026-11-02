@@ -33,6 +33,7 @@ group("deviceauth_test_build") {
       "unittest/tdd_framework/unit_test/services/frameworks/os_account_adapter:os_account_adapter_test_group",
       "unittest/tdd_framework/unit_test/services/session_manager/session/v1/compatible_sub_session:compatible_sub_session_test",
       "unittest/tdd_framework/unit_test/services/session_manager/session/v1/compatible_sub_session_mock:compatible_sub_session_mock_test",
+      "fuzztest/session_manager/session/v1/compatible_sub_session_fuzzer:CompatibleSubSessionFuzzTest",
       "unittest/tdd_framework/unit_test/services/session_manager/session/v2/auth_sub_session:auth_sub_session_test",
       "unittest/tdd_framework/unit_test/services/session_manager/session/v2/auth_sub_session/protocol_lib:dl_speke_protocol_test",
       "unittest/tdd_framework/unit_test/services/session_manager/session/v2/auth_sub_session/protocol_lib:ec_speke_protocol_test",
@@ -101,6 +102,7 @@ group("deviceauth_test_build") {
       "fuzztest/session_manager/session/v2/expand_sub_session/expand_process_lib/pubkeyexchange_fuzzer:fuzztest",
       "fuzztest/session_manager/session/v2/expand_sub_session/expand_process_lib/savetrustedinfo_fuzzer:fuzztest",
       "fuzztest/session_manager/session/v2/expand_sub_session/expandsubsession_fuzzer:fuzztest",
+      "fuzztest/session_manager/session/v1/compatible_sub_session_fuzzer:fuzztest",
     ]
   }
   }
