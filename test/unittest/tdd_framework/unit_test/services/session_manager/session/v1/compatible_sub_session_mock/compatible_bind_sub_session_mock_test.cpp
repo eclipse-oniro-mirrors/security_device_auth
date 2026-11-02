@@ -1,18 +1,3 @@
-/*
- * Copyright (C) 2026 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include <gtest/gtest.h>
 #include "common_defs.h"
 #include "compatible_auth_sub_session.h"
@@ -269,8 +254,6 @@ public:
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest001, TestSize.Level0)
 {
-    /* ProcessTask returns FINISH -> OnSessionFinish -> OnBindFinish -> HandleBindSuccess
-     * -> AddGroupAndDev + InformSelfBindSuccess (ProcessFinishCallback). */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_PROCESSING);
     ASSERT_NE(s, nullptr);
     SetProcessTaskResult(HC_SUCCESS, FINISH);
@@ -335,8 +318,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest004, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest005, TestSize.Level0)
 {
-    /* CreateTask fails -> CreateAndProcessBindTask returns error. Drive via initial
-     * ProcessClientBindSubSession (status INITIAL -> CreateAndProcessClientBindTask). */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
     ASSERT_NE(s, nullptr);
     SetCreateTaskResult(HC_ERR_INIT_TASK_FAIL);
@@ -415,8 +396,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest016, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest017, TestSize.Level0)
 {
-    /* Client bind INITIAL: CreateTask ok but ProcessTask fails ->
-     * CreateAndProcessBindTask returns error. */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
     ASSERT_NE(s, nullptr);
     SetCreateTaskResult(HC_SUCCESS);
@@ -463,9 +442,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest019, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest020, TestSize.Level0)
 {
-    /* AuthOnNextGroupIfExist with 2 candidate params + mocked CreateAndProcessAuthTask
-     * success on next group -> covers the success branch (create task on next, then
-     * HandleAuthTaskStatus). */
     CompatibleAuthSubSession *s = NewAuthSession(TYPE_CLIENT_AUTH_SUB_SESSION, STATUS_INITIAL);
     ASSERT_NE(s, nullptr);
     /* push a second param */
@@ -521,9 +497,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest041, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest042, TestSize.Level0)
 {
-    /* ProcessServerBindSubSession(INITIAL) -> PrepareAndSendServerData: now safe with
-     * the channel_manager null-check fix. Inject failures across GenerateServerModuleParams/
-     * AddRecvModuleDataToParams/CreateAndProcessBindTask/AddInfoToBindData/TransmitBindSessionData. */
     CompatibleBindSubSession *s = NewBindSession(TYPE_SERVER_BIND_SUB_SESSION, STATUS_INITIAL);
     ASSERT_NE(s, nullptr);
     s->opCode = MEMBER_INVITE;
@@ -547,9 +520,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest042, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest043, TestSize.Level0)
 {
-    /* OnSessionFinish exception: ProcessClientBindSubSession(PROCESSING) with
-     * ProcessTask=FINISH -> OnSessionFinish -> OnBindFinish -> HandleBindSuccess ->
-     * AddGroupAndDev + InformSelfBindSuccess. Inject failures across the finish path. */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_PROCESSING);
     ASSERT_NE(s, nullptr);
     CJson *in = CreateJson();
@@ -572,8 +542,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest043, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest060, TestSize.Level0)
 {
-    /* ProcessClientBindSubSession(PROCESSING) ProcessTask=CONTINUE -> SendBindDataToPeer
-     * -> InteractWithPeer -> AddInfoToBindData -> TransmitBindSessionData. Exception loop. */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_PROCESSING);
     ASSERT_NE(s, nullptr);
     CJson *in = CreateJson();
@@ -592,8 +560,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest060, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest061, TestSize.Level0)
 {
-    /* OnSessionFinish (ProcessTask=FINISH, sendToPeer present) -> InteractWithPeer
-     * (last packet) + OnBindFinish + HandleBindSuccess. Exception loop. */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_PROCESSING);
     ASSERT_NE(s, nullptr);
     CJson *in = CreateJson();
@@ -614,8 +580,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest061, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest062, TestSize.Level0)
 {
-    /* ReturnFinishData exception loop: HandleAuthTaskStatus(FINISH) with sendToPeer
-     * -> ReturnFinishData -> groupAuth->onFinish. Inject failures. */
     CJson *authParam = CreateJson();
     AddIntToJson(authParam, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
     AddStringToJson(authParam, FIELD_REQUEST_ID, "123");
@@ -642,8 +606,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest062, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest063, TestSize.Level0)
 {
-    /* ProcessServerBindSubSession(PROCESSING) ProcessTask=CONTINUE -> SendBindDataToPeer
-     * (server side). Exception loop covers the send path branches. */
     CompatibleBindSubSession *s = NewBindSession(TYPE_SERVER_BIND_SUB_SESSION, STATUS_PROCESSING);
     ASSERT_NE(s, nullptr);
     CJson *in = CreateJson();
@@ -662,8 +624,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest063, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest064, TestSize.Level0)
 {
-    /* AddRecvModuleDataToParams value-check branches: missing FIELD_MESSAGE,
-     * FIELD_AUTH_FORM, FIELD_PAYLOAD. Drive via ProcessServerBindSubSession(INITIAL). */
     CompatibleBindSubSession *s = NewBindSession(TYPE_SERVER_BIND_SUB_SESSION, STATUS_INITIAL);
     ASSERT_NE(s, nullptr);
     s->opCode = MEMBER_INVITE;
@@ -849,8 +809,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest074, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest075, TestSize.Level0)
 {
-    /* IsGroupExistByGroupId=true -> CheckAuthIdAndUserTypeValid proceeds to
-     * GetTrustedDevInfoById which fails -> error. */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
     ASSERT_NE(s, nullptr);
     s->opCode = MEMBER_INVITE;
@@ -1602,8 +1560,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest213, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest083, TestSize.Level0)
 {
-    /* ProcessBindTaskInner: CheckPeerStatus finds FIELD_GROUP_ERROR_MSG in `in`
-     * -> peer error branch. */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_PROCESSING);
     ASSERT_NE(s, nullptr);
     CJson *in = CreateJson();
@@ -1633,8 +1589,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest084, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest085, TestSize.Level0)
 {
-    /* ProcessServerBindSubSession(PROCESSING) ProcessTask=FINISH -> OnSessionFinish
-     * (server side). */
     CompatibleBindSubSession *s = NewBindSession(TYPE_SERVER_BIND_SUB_SESSION, STATUS_PROCESSING);
     ASSERT_NE(s, nullptr);
     CJson *in = CreateJson();
@@ -1652,8 +1606,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest085, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest099, TestSize.Level0)
 {
-    /* ProcessServerBindSubSession(PROCESSING) ProcessTask=FINISH -> OnSessionFinish
-     * (server side). Exception loop. */
     CompatibleBindSubSession *s = NewBindSession(TYPE_SERVER_BIND_SUB_SESSION, STATUS_PROCESSING);
     ASSERT_NE(s, nullptr);
     CJson *in = CreateJson();
@@ -1674,9 +1626,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest099, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest100, TestSize.Level0)
 {
-    /* CreateClientBindSubSession exception loop (member invite path with mock DB).
-     * Covers CreateBaseBindSubSession/CheckInvitePeer/GenerateKeyPairIfNeeded/
-     * InitChannel/GenerateBaseBindParams malloc/cJSON branches. */
     CJson *params = CreateJson();
     AddStringToJson(params, FIELD_REQUEST_ID, "123");
     AddIntToJson(params, FIELD_OPERATION_CODE, MEMBER_INVITE);
@@ -1709,9 +1658,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest100, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest109, TestSize.Level0)
 {
-    /* CreateServerBindSubSession exception loop (MEMBER_INVITE with mock DB).
-     * Covers CreateBaseBindSubSession/InitChannel/GenerateServerBindParams/
-     * GenerateBaseBindParams/GenerateKeyPairIfNeeded malloc/cJSON branches. */
     CJson *params = CreateJson();
     AddStringToJson(params, FIELD_REQUEST_ID, "321");
     AddIntToJson(params, FIELD_GROUP_OP, MEMBER_INVITE);
@@ -1743,9 +1689,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest109, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest110, TestSize.Level0)
 {
-    /* CreateClientAuthSubSession exception loop (with mock QueryGroups populating vec).
-     * Covers CheckInputAuthParams/CreateClientAuthSubSessionInner/GetAuthParamsVec/
-     * FillAuthParams/ExtractAndAddParams/AddUpgradeFlagToParams malloc branches. */
     CJson *authParams = CreateJson();
     AddStringToJson(authParams, FIELD_SERVICE_PKG_NAME, TEST_SERVICE_PKG_NAME);
     AddIntToJson(authParams, FIELD_KEY_LENGTH, DEFAULT_RETURN_KEY_LENGTH);
@@ -1769,9 +1712,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest110, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest111, TestSize.Level0)
 {
-    /* CreateServerAuthSubSession exception loop. Covers GetAuthInfoForServer/
-     * CheckAcceptRequest/GetAuthType/GetGroupAuth/getAuthParamsVecForServer/
-     * NotifyPeerAuthError malloc branches. */
     CJson *dataFromClient = CreateJson();
     AddStringToJson(dataFromClient, FIELD_REQUEST_ID, "321");
     AddIntToJson(dataFromClient, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
@@ -1795,8 +1735,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest111, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest112, TestSize.Level0)
 {
-    /* DestroyCompatibleAuthSubSession with paramsList empty (currentIndex out of range).
-     * Construct session with empty paramsList. */
     CompatibleAuthSubSession *s = (CompatibleAuthSubSession *)HcMalloc(sizeof(CompatibleAuthSubSession), 0);
     ASSERT_NE(s, nullptr);
     s->base.type = TYPE_CLIENT_AUTH_SUB_SESSION;
@@ -1824,9 +1762,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest113, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest114, TestSize.Level0)
 {
-    /* ProcessServerBindSubSession(PROCESSING) ProcessTask=error -> InformPeerModuleError
-     * (server side). Exception loop covers AddStringToJson/AddInt64StringToJson/
-     * AddInfoToBindData/TransmitBindSessionData branches. */
     CompatibleBindSubSession *s = NewBindSession(TYPE_SERVER_BIND_SUB_SESSION, STATUS_PROCESSING);
     ASSERT_NE(s, nullptr);
     CJson *in = CreateJson();
@@ -1845,9 +1780,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest114, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest115, TestSize.Level0)
 {
-    /* CombineConfirmData exception loop: covers AddPinCode/AddAuthIdIfExist/
-     * AddUserTypeIfExistAndValid/AddGroupVisibilityIfExistAndValid/
-     * AddExpireTimeIfExistAndValid malloc branches. */
     CJson *returnData = CreateJson();
     AddStringToJson(returnData, FIELD_PIN_CODE, TEST_PIN_CODE);
     AddStringToJson(returnData, FIELD_DEVICE_ID, TEST_AUTH_ID2);
@@ -1869,8 +1801,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest115, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest116, TestSize.Level0)
 {
-    /* TransmitBindSessionData exception loop: covers PackJsonToString/
-     * HcSendMsg branches. */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_PROCESSING);
     ASSERT_NE(s, nullptr);
     CJson *sendData = CreateJson();
@@ -1888,8 +1818,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest116, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest117, TestSize.Level0)
 {
-    /* InformPeerProcessError exception loop: covers GenerateGroupErrorMsg/
-     * PackJsonToString/HcSendMsg branches. */
     CJson *params = CreateJson();
     AddStringToJson(params, FIELD_SERVICE_PKG_NAME, TEST_APP_ID);
     int64_t chId = DEFAULT_CHANNEL_ID;
@@ -1909,9 +1837,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest117, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest118, TestSize.Level0)
 {
-    /* FillAuthParams exception loop: with mock QueryGroups populating vec,
-     * covers DuplicateJson/AddUpgradeFlagToParams/ExtractAndAddParams/
-     * AddGeneralParams/fillDeviceAuthInfo malloc branches. */
     CJson *authParam = CreateJson();
     AddIntToJson(authParam, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
     AddStringToJson(authParam, FIELD_SERVICE_PKG_NAME, TEST_SERVICE_PKG_NAME);
@@ -1943,8 +1868,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest118, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest119, TestSize.Level0)
 {
-    /* ProcessClientAuthTask PROCESSING with peer group error -> HandlePeerAuthError
-     * -> AuthOnNextGroupIfExist exception loop. */
     CJson *authParam1 = CreateJson();
     AddIntToJson(authParam1, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
     AddStringToJson(authParam1, FIELD_SERVICE_PKG_NAME, TEST_SERVICE_PKG_NAME);
@@ -1977,8 +1900,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest119, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest120, TestSize.Level0)
 {
-    /* ProcessServerAuthSubSession(PROCESSING) ProcessTask=error ->
-     * ProcessServerAuthError -> ReturnErrorToPeerByTask exception loop. */
     CJson *authParam = CreateJson();
     AddIntToJson(authParam, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
     AddStringToJson(authParam, FIELD_REQUEST_ID, "123");
@@ -2003,8 +1924,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest120, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest121, TestSize.Level0)
 {
-    /* CreateAndProcessServerAuthTask exception loop: covers CreateJson/
-     * CreateAndProcessAuthTask/HandleAuthTaskStatus/ProcessServerAuthError. */
     CJson *authParam = CreateJson();
     AddIntToJson(authParam, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
     AddStringToJson(authParam, FIELD_SERVICE_PKG_NAME, TEST_SERVICE_PKG_NAME);
@@ -2031,10 +1950,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest121, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest122, TestSize.Level0)
 {
-    /* ProcessClientBindSubSession(PROCESSING) ProcessTask=CONTINUE with
-     * FIELD_PEER_USER_TYPE in `in` -> TryAddPeerUserTypeToParams success branch.
-     * Exception loop covers CheckPeerStatus/TryAddPeerUserType/ProcessModule/
-     * SendBindDataToPeer branches. */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_PROCESSING);
     ASSERT_NE(s, nullptr);
     CJson *in = CreateJson();
@@ -2054,8 +1969,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest122, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest123, TestSize.Level0)
 {
-    /* DelTrustDeviceOnAuthErrorV1: IDENTICAL_ACCOUNT + PEER_ACCOUNT_NOT_LOGIN.
-     * Covers the additional peerResultCode branch. */
     CJson *authParam = CreateJson();
     AddIntToJson(authParam, FIELD_AUTH_FORM, AUTH_FORM_IDENTICAL_ACCOUNT);
     AddBoolToJson(authParam, FIELD_IS_CLIENT, true);
@@ -2107,8 +2020,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest124, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest125, TestSize.Level0)
 {
-    /* ProcessClientAuthSubSession(PROCESSING) ProcessTask=FINISH with sendToPeer
-     * injected -> ReturnFinishData + ClearSensitiveStringInJson. Exception loop. */
     CJson *authParam = CreateJson();
     AddIntToJson(authParam, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
     AddStringToJson(authParam, FIELD_REQUEST_ID, "123");
@@ -2136,9 +2047,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest125, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest141, TestSize.Level0)
 {
-    /* GenerateBaseModuleParams exception loop (covers AddGroupAndDevInfoToParams/
-     * AddRequestInfoToParams/AddPinCodeToParams/AddProtocolExpandValToParams/
-     * AddOsAccountIdToParams malloc branches). */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
     ASSERT_NE(s, nullptr);
     for (uint32_t i = 0; i <= 25; i++) {
@@ -2154,9 +2062,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest141, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest142, TestSize.Level0)
 {
-    /* AddInfoToBindData exception loop (covers AddGroupInfoToSendData/
-     * AddDevInfoToSendData/AddRequestInfoToSendData/AddCompatibleInfoToSendData/
-     * GenerateCompatibleInfo malloc branches). */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
     ASSERT_NE(s, nullptr);
     for (uint32_t i = 0; i <= 28; i++) {
@@ -2172,8 +2077,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest142, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest143, TestSize.Level0)
 {
-    /* InformPeerGroupErrorIfNeeded exception loop (covers AddGroupErrorInfo/
-     * TransmitBindSessionData malloc branches). */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
     ASSERT_NE(s, nullptr);
     for (uint32_t i = 0; i <= 15; i++) {
@@ -2205,8 +2108,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest144, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest145, TestSize.Level0)
 {
-    /* CreateAndProcessBindTask exception loop: covers CreateTask/ProcessTask
-     * + AddInfoToBindData/TransmitBindSessionData branches. */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
     ASSERT_NE(s, nullptr);
     s->opCode = MEMBER_INVITE;
@@ -2231,8 +2132,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest145, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest147, TestSize.Level0)
 {
-    /* GenerateBaseBindParams(CLIENT, MEMBER_JOIN): missing FIELD_GROUP_NAME.
-     * IsCreateGroupNeeded=true -> GenerateParamsByInput -> AddGroupName error. */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
     ASSERT_NE(s, nullptr);
     s->opCode = MEMBER_INVITE;
@@ -2312,9 +2211,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest150, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest151, TestSize.Level0)
 {
-    /* GenerateBaseBindParams(CLIENT, MEMBER_INVITE): IsCreateGroupNeeded=false ->
-     * GenerateParamsByDatabase -> AddGroupInfoByDatabase (GetGroupEntryById mock returns entry)
-     * + AddDevInfoByDatabase (GetTrustedDevInfoById mock returns success). */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
     ASSERT_NE(s, nullptr);
     s->opCode = MEMBER_INVITE;
@@ -2336,8 +2232,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest151, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest152, TestSize.Level0)
 {
-    /* CreateServerBindSubSession: CheckServerStatusIfNotInvite(MEMBER_JOIN) path.
-     * Covers CheckGroupExist/CheckPermForGroup(MEMBER_INVITE)/CheckDeviceNumLimit. */
     CJson *params = CreateJson();
     AddStringToJson(params, FIELD_REQUEST_ID, "321");
     AddIntToJson(params, FIELD_GROUP_OP, MEMBER_JOIN);
@@ -2427,9 +2321,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest155, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest156, TestSize.Level0)
 {
-    /* GenerateBaseBindParams(CLIENT, MEMBER_INVITE): IsGroupExistByGroupId=true ->
-     * CheckAuthIdAndUserTypeValid -> GetTrustedDevInfoById succeeds (mock) ->
-     * devType mismatch -> HC_ERR_INVALID_PARAMS. */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
     ASSERT_NE(s, nullptr);
     s->opCode = MEMBER_JOIN;
@@ -2454,8 +2345,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest156, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest157, TestSize.Level0)
 {
-    /* bind: GenerateParamsByDatabase path (CLIENT MEMBER_INVITE, mock DB returns group).
-     * Covers AddGroupInfoByDatabase/AddDevInfoByDatabase. */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
     ASSERT_NE(s, nullptr);
     s->opCode = MEMBER_INVITE;
@@ -2477,8 +2366,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest157, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest158, TestSize.Level0)
 {
-    /* bind: GenerateParamsByInput path (CLIENT MEMBER_JOIN, mock DB).
-     * Covers AddGroupInfoToSessionParams/AddDevInfoToSessionParams/AddUdid. */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
     ASSERT_NE(s, nullptr);
     s->opCode = MEMBER_JOIN;
@@ -2530,8 +2417,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest160, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest161, TestSize.Level0)
 {
-    /* bind: SERVER bind ProcessTask=FINISH with sendToPeer in out -> OnSessionFinish
-     * -> OnBindFinish with peerAuthId from jsonParams (not session->params). */
     CompatibleBindSubSession *s = NewBindSession(TYPE_SERVER_BIND_SUB_SESSION, STATUS_PROCESSING);
     ASSERT_NE(s, nullptr);
     CJson *in = CreateJson();
@@ -2547,8 +2432,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest161, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest162, TestSize.Level0)
 {
-    /* bind: SERVER bind ProcessTask=CONTINUE with sendToPeer -> SendBindDataToPeer
-     * (server side, not client). */
     CompatibleBindSubSession *s = NewBindSession(TYPE_SERVER_BIND_SUB_SESSION, STATUS_PROCESSING);
     ASSERT_NE(s, nullptr);
     CJson *in = CreateJson();
@@ -2563,9 +2446,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest162, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest163, TestSize.Level0)
 {
-    /* auth: ProcessClientAuthSubSession(PROCESSING) with peer group error +
-     * no FIELD_RESULT_CODE -> DelTrustDeviceOnAuthErrorV1 with peerResultCode=0
-     * (not matching any PEER_ACCOUNT_*) -> early return. */
     CJson *authParam = CreateJson();
     AddIntToJson(authParam, FIELD_AUTH_FORM, AUTH_FORM_IDENTICAL_ACCOUNT);
     AddBoolToJson(authParam, FIELD_IS_CLIENT, true);
@@ -2585,8 +2465,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest163, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest164, TestSize.Level0)
 {
-    /* auth: ProcessClientAuthSubSession(PROCESSING) ProcessTask=IGNORE_MSG.
-     * Covers HandleAuthTaskStatus IGNORE_MSG branch. */
     CJson *authParam = CreateJson();
     AddIntToJson(authParam, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
     AddBoolToJson(authParam, FIELD_IS_CLIENT, true);
@@ -2607,8 +2485,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest164, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest165, TestSize.Level0)
 {
-    /* auth: ProcessServerAuthSubSession(PROCESSING) ProcessTask=IGNORE_MSG.
-     * Covers HandleAuthTaskStatus IGNORE_MSG (server side). */
     CJson *authParam = CreateJson();
     AddIntToJson(authParam, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
     AddBoolToJson(authParam, FIELD_IS_CLIENT, false);
@@ -2628,8 +2504,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest165, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest166, TestSize.Level0)
 {
-    /* auth: CreateServerAuthSubSession with AUTH_FORM_IDENTICAL_ACCOUNT.
-     * Covers GetAuthType(IDENTICAL) -> ACCOUNT_RELATED_GROUP_AUTH_TYPE path. */
     CJson *dataFromClient = CreateJson();
     AddStringToJson(dataFromClient, FIELD_REQUEST_ID, "321");
     AddIntToJson(dataFromClient, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
@@ -2644,8 +2518,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest166, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest167, TestSize.Level0)
 {
-    /* auth: CreateServerAuthSubSession with AUTH_FORM_ACROSS_ACCOUNT.
-     * Covers GetAuthType(ACROSS) -> ACCOUNT_RELATED_GROUP_AUTH_TYPE path. */
     CJson *dataFromClient = CreateJson();
     AddStringToJson(dataFromClient, FIELD_REQUEST_ID, "321");
     AddIntToJson(dataFromClient, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
@@ -2660,8 +2532,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest167, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest168, TestSize.Level0)
 {
-    /* bind: InformPeerModuleError with sendToPeer=NULL in out -> early return.
-     * ProcessTask=error with no sendToPeer injected. */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_PROCESSING);
     ASSERT_NE(s, nullptr);
     /* Don't set ProcessTask to inject sendToPeer - use error without sendToPeer */
@@ -2676,8 +2546,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest168, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest169, TestSize.Level0)
 {
-    /* bind: OnSessionFinish with sendData present -> InteractWithPeer sends last packet
-     * then OnBindFinish. ProcessTask=FINISH with sendToPeer. */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_PROCESSING);
     ASSERT_NE(s, nullptr);
     CJson *in = CreateJson();
@@ -2843,32 +2711,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest177, TestSize.Level0)
     }
     FreeJson(jsonParams);
     ResetGroupOpMock();
-    FreeBindSession(s);
-}
-
-/* P3: GenerateBaseModuleParams(CLIENT) exception loop:
- * CLIENT side module params (isClient=true) with full session->params. */
-HWTEST_F(CompatibleBindSubSessionMockTest, MockTest178, TestSize.Level0)
-{
-    CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
-    ASSERT_NE(s, nullptr);
-    s->opCode = MEMBER_INVITE;
-    s->params = CreateJson();
-    AddStringToJson(s->params, FIELD_GROUP_ID, TEST_GROUP_ID);
-    AddStringToJson(s->params, FIELD_GROUP_NAME, TEST_GROUP_NAME);
-    AddIntToJson(s->params, FIELD_GROUP_TYPE, PEER_TO_PEER_GROUP);
-    AddStringToJson(s->params, FIELD_AUTH_ID, TEST_AUTH_ID);
-    AddStringToJson(s->params, FIELD_CONN_DEVICE_ID, TEST_UDID_CLIENT);
-    AddStringToJson(s->params, FIELD_PEER_AUTH_ID, TEST_AUTH_ID2);
-    AddStringToJson(s->params, FIELD_PEER_UDID, TEST_UDID_SERVER);
-    CJson *moduleParams = CreateJson();
-    for (uint32_t i = 0; i <= 15; i++) {
-        SetControllerMode(true);
-        SetThrowExceptionIndex(i);
-        (void)GenerateBaseModuleParams(true, s, moduleParams);
-        SetControllerMode(false);
-    }
-    FreeJson(moduleParams);
     FreeBindSession(s);
 }
 
