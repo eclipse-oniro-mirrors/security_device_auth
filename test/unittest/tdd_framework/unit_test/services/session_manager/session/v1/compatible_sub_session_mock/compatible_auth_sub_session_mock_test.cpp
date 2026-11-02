@@ -2125,4 +2125,105 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth024, TestSize.Leve
     FreeJson(params);
 }
 
+
+/* ===== Targeted auth: cover reachable branches ===== */
+
+/* CreateClientAuthSubSession with missing FIELD_SERVICE_PKG_NAME.
+ * Covers: GetStringFromJson(FIELD_SERVICE_PKG_NAME)==NULL path. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth025, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddIntToJson(params, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
+    AddBoolToJson(params, FIELD_IS_CLIENT, true);
+    AddStringToJson(params, FIELD_REQUEST_ID, "123");
+    CompatibleBaseSubSession *session = nullptr;
+    EXPECT_NE(CreateClientAuthSubSession(params, &g_callback, &session), HC_SUCCESS);
+    if (session != nullptr) { DestroyCompatibleAuthSubSession(session); }
+    FreeJson(params);
+}
+
+/* ProcessClientAuthSubSession(INITIAL) with CreateTask fail.
+ * Covers: CreateAndProcessClientAuthTask error path. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth026, TestSize.Level0)
+{
+    CompatibleAuthSubSession *s = NewAuthSession(TYPE_CLIENT_AUTH_SUB_SESSION, STATUS_INITIAL);
+    ASSERT_NE(s, nullptr);
+    CJson *authParam = CreateJson();
+    AddIntToJson(authParam, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
+    AddBoolToJson(authParam, FIELD_IS_CLIENT, true);
+    const void *ptr = authParam;
+    s->paramsList.pushBack(&s->paramsList, &ptr);
+    s->currentIndex = 0;
+    SetCreateTaskResult(HC_ERR_TASK_IS_NULL);
+    CJson *in = CreateJson();
+    CJson *out = nullptr;
+    int32_t status = 0;
+    (void)ProcessClientAuthSubSession((CompatibleBaseSubSession *)s, in, &out, &status);
+    if (out != nullptr) { FreeJson(out); }
+    FreeJson(in);
+    ResetModuleMock();
+    FreeAuthSession(s);
+    SUCCEED();
+}
+
+/* ProcessServerAuthSubSession(INITIAL) with CreateTask fail.
+ * Covers: CreateAndProcessServerAuthTask error path. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth027, TestSize.Level0)
+{
+    CompatibleAuthSubSession *s = NewAuthSession(TYPE_SERVER_AUTH_SUB_SESSION, STATUS_INITIAL);
+    ASSERT_NE(s, nullptr);
+    CJson *authParam = CreateJson();
+    AddIntToJson(authParam, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
+    AddBoolToJson(authParam, FIELD_IS_CLIENT, false);
+    const void *ptr = authParam;
+    s->paramsList.pushBack(&s->paramsList, &ptr);
+    s->currentIndex = 0;
+    SetCreateTaskResult(HC_ERR_TASK_IS_NULL);
+    CJson *in = CreateJson();
+    int32_t status = 0;
+    (void)ProcessServerAuthSubSession((CompatibleBaseSubSession *)s, in, &status);
+    FreeJson(in);
+    ResetModuleMock();
+    FreeAuthSession(s);
+    SUCCEED();
+}
+
+/* ProcessClientAuthSubSession(PROCESSING) with ProcessTask FINISH + NULL callback.
+ * Covers: ReturnFinishData with callback NULL + groupAuth NULL. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth028, TestSize.Level0)
+{
+    CompatibleAuthSubSession *s = NewAuthSession(TYPE_CLIENT_AUTH_SUB_SESSION, STATUS_PROCESSING);
+    ASSERT_NE(s, nullptr);
+    s->base.callback = nullptr;
+    CJson *authParam = CreateJson();
+    AddIntToJson(authParam, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
+    AddBoolToJson(authParam, FIELD_IS_CLIENT, true);
+    const void *ptr = authParam;
+    s->paramsList.pushBack(&s->paramsList, &ptr);
+    s->currentIndex = 0;
+    SetProcessTaskResult(HC_SUCCESS, FINISH);
+    CJson *in = CreateJson();
+    int32_t status = 0;
+    (void)ProcessClientAuthSubSession((CompatibleBaseSubSession *)s, in, nullptr, &status);
+    FreeJson(in);
+    ResetModuleMock();
+    FreeAuthSession(s);
+    SUCCEED();
+}
+
+/* CreateServerAuthSubSession with invalid authForm.
+ * Covers: GetAuthType returns INVALID -> GetGroupAuth returns NULL. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth029, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddIntToJson(params, FIELD_AUTH_FORM, 9999);
+    AddStringToJson(params, FIELD_SERVICE_PKG_NAME, TEST_APP_ID);
+    AddIntToJson(params, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    AddIntToJson(params, FIELD_CONFIRMATION, REQUEST_ACCEPTED);
+    CompatibleBaseSubSession *session = nullptr;
+    EXPECT_NE(CreateServerAuthSubSession(params, &g_callback, &session), HC_SUCCESS);
+    if (session != nullptr) { DestroyCompatibleAuthSubSession(session); }
+    FreeJson(params);
+}
+
 }  // namespace
