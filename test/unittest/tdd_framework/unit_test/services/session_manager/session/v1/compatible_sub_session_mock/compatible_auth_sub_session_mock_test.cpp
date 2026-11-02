@@ -2283,4 +2283,105 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth015, TestSize.Leve
     SUCCEED();
 }
 
+
+/* ===== Cover reachable auth branches ===== */
+
+/* Extended exception injection for AddGeneralParams/FillAuthParams.
+ * GetAuthParamsVec with full params + exception loop 40 iterations. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth016, TestSize.Level0)
+{
+    CJson *param = CreateJson();
+    AddIntToJson(param, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
+    AddStringToJson(param, FIELD_SERVICE_PKG_NAME, TEST_SERVICE_PKG_NAME);
+    AddBoolToJson(param, FIELD_IS_CLIENT, true);
+    AddStringToJson(param, FIELD_REQUEST_ID, "123");
+    AddStringToJson(param, FIELD_PEER_CONN_DEVICE_ID, TEST_UDID_SERVER);
+    ParamsVecForAuth vec;
+    CreateAuthParamsList(&vec);
+    SetIsGroupExistByGroupId(true);
+    SetGetTrustedDevInfoByIdResult(HC_SUCCESS);
+    SetGaGetLocalDeviceInfoResult(HC_SUCCESS);
+    SetGaIsGroupAccessible(true);
+    SetQueryGroupsResult(HC_SUCCESS);
+    for (uint32_t i = 0; i <= 40; i++) {
+        SetControllerMode(true);
+        SetThrowExceptionIndex(i);
+        (void)GetAuthParamsVec(TEST_OS_ACCOUNT_ID, param, &vec);
+        SetControllerMode(false);
+    }
+    DestroyAuthParamsList(&vec);
+    FreeJson(param);
+    ResetGroupOpMock();
+    ResetGaMock();
+    ResetDbMock();
+    SUCCEED();
+}
+
+/* ProcessServerAuthError with sendToPeer in out.
+ * Covers ReturnErrorToPeerByTask + ClearCachedData branches. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth017, TestSize.Level0)
+{
+    CompatibleAuthSubSession *s = NewAuthSession(TYPE_SERVER_AUTH_SUB_SESSION, STATUS_PROCESSING);
+    ASSERT_NE(s, nullptr);
+    CJson *out = CreateJson();
+    AddStringToJson(out, FIELD_SEND_TO_PEER, "{}");
+    SetProcessTaskResult(HC_ERROR, IGNORE_MSG);
+    int32_t status = 0;
+    (void)ProcessServerAuthSubSession((CompatibleBaseSubSession *)s, out, &status);
+    FreeJson(out);
+    ResetModuleMock();
+    FreeAuthSession(s);
+    SUCCEED();
+}
+
+/* ReturnFinishData with exception injection.
+ * Covers groupAuth->onFinish + ClearSensitiveStringInJson branches. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth018, TestSize.Level0)
+{
+    CompatibleAuthSubSession *s = NewAuthSession(TYPE_CLIENT_AUTH_SUB_SESSION, STATUS_PROCESSING);
+    ASSERT_NE(s, nullptr);
+    CJson *authParam = CreateJson();
+    AddIntToJson(authParam, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
+    AddBoolToJson(authParam, FIELD_IS_CLIENT, true);
+    const void *ptr = authParam;
+    s->paramsList.pushBack(&s->paramsList, &ptr);
+    s->currentIndex = 0;
+    SetProcessTaskResult(HC_SUCCESS, FINISH);
+    CJson *out = CreateJson();
+    AddStringToJson(out, FIELD_SEND_TO_SELF, "{}");
+    for (uint32_t i = 0; i <= 20; i++) {
+        SetControllerMode(true);
+        SetThrowExceptionIndex(i);
+        int32_t status = 0;
+        (void)ProcessClientAuthSubSession((CompatibleBaseSubSession *)s, out, nullptr, &status);
+        SetControllerMode(false);
+    }
+    FreeJson(out);
+    FreeAuthSession(s);
+    ResetModuleMock();
+    SUCCEED();
+}
+
+/* CreateServerAuthSubSession exception loop with ACCOUNT_UNRELATED.
+ * Covers GetAuthInfoForServer + CheckAcceptRequest branches. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth019, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddIntToJson(params, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
+    AddStringToJson(params, FIELD_SERVICE_PKG_NAME, TEST_APP_ID);
+    AddIntToJson(params, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    AddIntToJson(params, FIELD_CONFIRMATION, REQUEST_ACCEPTED);
+    AddStringToJson(params, FIELD_PIN_CODE, TEST_PIN_CODE);
+    for (uint32_t i = 0; i <= 25; i++) {
+        SetControllerMode(true);
+        SetThrowExceptionIndex(i);
+        CompatibleBaseSubSession *session = nullptr;
+        (void)CreateServerAuthSubSession(params, &g_callback, &session);
+        if (session != nullptr) { DestroyCompatibleAuthSubSession(session); }
+        SetControllerMode(false);
+    }
+    FreeJson(params);
+    SUCCEED();
+}
+
 }  // namespace

@@ -1205,6 +1205,155 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest194, TestSize.Level0)
     SUCCEED();
 }
 
+
+/* ===== Cover reachable uncovered branches ===== */
+
+/* switch case: CreateCompatibleSubSession with different types.
+ * Covers TYPE_SERVER_BIND, TYPE_CLIENT_AUTH, TYPE_SERVER_AUTH in dispatcher. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest195, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddStringToJson(params, FIELD_REQUEST_ID, "123");
+    AddStringToJson(params, FIELD_APP_ID, TEST_APP_ID);
+    AddIntToJson(params, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    CompatibleBaseSubSession *session = nullptr;
+    (void)CreateCompatibleSubSession(TYPE_SERVER_BIND_SUB_SESSION, params, &g_callback, &session);
+    if (session != nullptr) { DestroyCompatibleSubSession(session); }
+    FreeJson(params);
+    SUCCEED();
+}
+
+
+/* NULL callback: ProcessClientAuthSubSession with NULL callback.
+ * Covers callback==NULL branches in ReturnErrorToPeerBySession/ReturnTransmitData. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest197, TestSize.Level0)
+{
+    CompatibleAuthSubSession *s = NewAuthSession(TYPE_CLIENT_AUTH_SUB_SESSION, STATUS_PROCESSING);
+    ASSERT_NE(s, nullptr);
+    s->base.callback = nullptr;
+    SetProcessTaskResult(HC_ERROR, IGNORE_MSG);
+    CJson *in = CreateJson();
+    int32_t status = 0;
+    (void)ProcessClientAuthSubSession((CompatibleBaseSubSession *)s, in, nullptr, &status);
+    FreeJson(in);
+    ResetModuleMock();
+    FreeAuthSession(s);
+    SUCCEED();
+}
+
+/* NULL callback: ReturnErrorToPeerBySession with callback NULL.
+ * Covers callback->onTransmit==NULL branches. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest198, TestSize.Level0)
+{
+    CJson *authParam = CreateJson();
+    AddIntToJson(authParam, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
+    AddStringToJson(authParam, FIELD_REQUEST_ID, "123");
+    NotifyPeerAuthError(authParam, nullptr);
+    FreeJson(authParam);
+    SUCCEED();
+}
+
+/* Missing FIELD_PIN_CODE: GenerateBaseBindParams(CLIENT, INVITE) missing pin.
+ * Covers AddPinCode error path. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest199, TestSize.Level0)
+{
+    CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
+    ASSERT_NE(s, nullptr);
+    s->opCode = MEMBER_INVITE;
+    CJson *jsonParams = CreateJson();
+    AddStringToJson(jsonParams, FIELD_GROUP_ID, TEST_GROUP_ID);
+    AddStringToJson(jsonParams, FIELD_GROUP_NAME, TEST_GROUP_NAME);
+    AddIntToJson(jsonParams, FIELD_GROUP_TYPE, PEER_TO_PEER_GROUP);
+    AddIntToJson(jsonParams, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    AddStringToJson(jsonParams, FIELD_DEVICE_ID, TEST_AUTH_ID);
+    SetIsGroupExistByGroupId(true);
+    int32_t ret = GenerateBaseBindParams(TEST_OS_ACCOUNT_ID, CLIENT, jsonParams, s);
+    FreeJson(jsonParams);
+    ResetGroupOpMock();
+    FreeBindSession(s);
+    EXPECT_NE(ret, HC_SUCCESS);
+}
+
+/* Missing FIELD_DEVICE_ID: GenerateBaseBindParams(SERVER, INVITE) missing device.
+ * Covers authId==NULL path in AddGroupAndDevInfoToParams. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest200, TestSize.Level0)
+{
+    CompatibleBindSubSession *s = NewBindSession(TYPE_SERVER_BIND_SUB_SESSION, STATUS_INITIAL);
+    ASSERT_NE(s, nullptr);
+    s->opCode = MEMBER_INVITE;
+    CJson *jsonParams = CreateJson();
+    AddStringToJson(jsonParams, FIELD_PIN_CODE, TEST_PIN_CODE);
+    AddStringToJson(jsonParams, FIELD_GROUP_ID, TEST_GROUP_ID);
+    AddStringToJson(jsonParams, FIELD_GROUP_NAME, TEST_GROUP_NAME);
+    AddIntToJson(jsonParams, FIELD_GROUP_TYPE, PEER_TO_PEER_GROUP);
+    AddIntToJson(jsonParams, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    SetIsGroupExistByGroupId(true);
+    int32_t ret = GenerateBaseBindParams(TEST_OS_ACCOUNT_ID, SERVER, jsonParams, s);
+    FreeJson(jsonParams);
+    ResetGroupOpMock();
+    FreeBindSession(s);
+    EXPECT_NE(ret, HC_SUCCESS);
+}
+
+/* Extended exception injection: GenerateGroupErrorMsg with more iterations.
+ * Covers remaining AddGroupErrorInfo/AddInfoToErrorData branches. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest201, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddStringToJson(params, FIELD_SERVICE_PKG_NAME, TEST_APP_ID);
+    AddStringToJson(params, FIELD_GROUP_ID, TEST_GROUP_ID);
+    AddIntToJson(params, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    int64_t chId = DEFAULT_CHANNEL_ID;
+    AddByteToJson(params, FIELD_CHANNEL_ID, (const uint8_t *)&chId, sizeof(int64_t));
+    AddIntToJson(params, FIELD_CHANNEL_TYPE, SERVICE_CHANNEL);
+    for (uint32_t i = 0; i <= 30; i++) {
+        SetControllerMode(true);
+        SetThrowExceptionIndex(i);
+        InformPeerProcessError(999, params, &g_callback, HC_ERR_INVALID_PARAMS);
+        SetControllerMode(false);
+    }
+    FreeJson(params);
+    SUCCEED();
+}
+
+/* Missing FIELD_MESSAGE: PrepareServerData missing message field.
+ * Covers GetIntFromJson(FIELD_MESSAGE) error path. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest202, TestSize.Level0)
+{
+    CompatibleBindSubSession *s = NewBindSession(TYPE_SERVER_BIND_SUB_SESSION, STATUS_PROCESSING);
+    ASSERT_NE(s, nullptr);
+    s->opCode = MEMBER_INVITE;
+    s->params = CreateJson();
+    AddStringToJson(s->params, FIELD_GROUP_ID, TEST_GROUP_ID);
+    CJson *in = CreateJson();
+    AddStringToJson(in, FIELD_PAYLOAD, "{}");
+    int32_t status = 0;
+    (void)ProcessServerBindSubSession((CompatibleBaseSubSession *)s, in, &status);
+    FreeJson(in);
+    FreeBindSession(s);
+    SUCCEED();
+}
+
+/* CheckIsForegroundOsAccountId: CombineAuthConfirmData with foreground check.
+ * Covers !CheckIsForegroundOsAccountId branch. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest203, TestSize.Level0)
+{
+    CJson *confirmation = CreateJson();
+    AddIntToJson(confirmation, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    CJson *dataFromClient = CreateJson();
+    AddIntToJson(dataFromClient, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
+    (void)CombineAuthConfirmData(confirmation, dataFromClient);
+    FreeJson(confirmation);
+    FreeJson(dataFromClient);
+    SUCCEED();
+}
+
+/* GetDuplicatePkgName: NULL params -> covers pkgName==NULL branch. */
+HWTEST_F(CompatibleBindSubSessionMockTest, MockTest204, TestSize.Level0)
+{
+    EXPECT_EQ(GetDuplicatePkgName(nullptr), nullptr);
+}
+
 }  // namespace
 
 /* ===== bind CheckPeerStatus + TryAddPeerUserType branches ===== */
