@@ -2226,4 +2226,144 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth029, TestSize.Leve
     FreeJson(params);
 }
 
+
+/* ===== Cover remaining auth reachable branches ===== */
+
+/* CreateClientAuthSubSession exception loop with 50 iters.
+ * Covers remaining AddGeneralParams/FillAuthParams/ExtractAndAddParams JSON failures. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth030, TestSize.Level0)
+{
+    CJson *params = CreateJson();
+    AddIntToJson(params, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
+    AddStringToJson(params, FIELD_SERVICE_PKG_NAME, TEST_SERVICE_PKG_NAME);
+    AddBoolToJson(params, FIELD_IS_CLIENT, true);
+    AddStringToJson(params, FIELD_REQUEST_ID, "123");
+    AddStringToJson(params, FIELD_PEER_CONN_DEVICE_ID, TEST_UDID_SERVER);
+    SetIsGroupExistByGroupId(true);
+    SetGetTrustedDevInfoByIdResult(HC_SUCCESS);
+    SetGaGetLocalDeviceInfoResult(HC_SUCCESS);
+    SetGaIsGroupAccessible(true);
+    SetQueryGroupsResult(HC_SUCCESS);
+    for (uint32_t i = 0; i <= 50; i++) {
+        SetControllerMode(true);
+        SetThrowExceptionIndex(i);
+        CompatibleBaseSubSession *session = nullptr;
+        (void)CreateClientAuthSubSession(params, &g_callback, &session);
+        if (session != nullptr) { DestroyCompatibleAuthSubSession(session); }
+        SetControllerMode(false);
+    }
+    FreeJson(params);
+    ResetGroupOpMock();
+    ResetGaMock();
+    ResetDbMock();
+    SUCCEED();
+}
+
+/* ProcessClientAuthSubSession(PROCESSING) FINISH + exception loop 30 iters.
+ * Covers: ReturnFinishData + ClearSensitiveStringInJson remaining branches. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth031, TestSize.Level0)
+{
+    CompatibleAuthSubSession *s = NewAuthSession(TYPE_CLIENT_AUTH_SUB_SESSION, STATUS_PROCESSING);
+    ASSERT_NE(s, nullptr);
+    CJson *authParam = CreateJson();
+    AddIntToJson(authParam, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
+    AddBoolToJson(authParam, FIELD_IS_CLIENT, true);
+    AddStringToJson(authParam, FIELD_SERVICE_PKG_NAME, TEST_SERVICE_PKG_NAME);
+    const void *ptr = authParam;
+    s->paramsList.pushBack(&s->paramsList, &ptr);
+    s->currentIndex = 0;
+    SetProcessTaskResult(HC_SUCCESS, FINISH);
+    CJson *in = CreateJson();
+    for (uint32_t i = 0; i <= 30; i++) {
+        SetControllerMode(true);
+        SetThrowExceptionIndex(i);
+        int32_t status = 0;
+        (void)ProcessClientAuthSubSession((CompatibleBaseSubSession *)s, in, nullptr, &status);
+        SetControllerMode(false);
+    }
+    FreeJson(in);
+    ResetModuleMock();
+    FreeAuthSession(s);
+    SUCCEED();
+}
+
+/* ProcessServerAuthSubSession(PROCESSING) FINISH + exception loop 30 iters.
+ * Covers: ReturnFinishData server-side branches. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth032, TestSize.Level0)
+{
+    CompatibleAuthSubSession *s = NewAuthSession(TYPE_SERVER_AUTH_SUB_SESSION, STATUS_PROCESSING);
+    ASSERT_NE(s, nullptr);
+    CJson *authParam = CreateJson();
+    AddIntToJson(authParam, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
+    AddBoolToJson(authParam, FIELD_IS_CLIENT, false);
+    const void *ptr = authParam;
+    s->paramsList.pushBack(&s->paramsList, &ptr);
+    s->currentIndex = 0;
+    SetProcessTaskResult(HC_SUCCESS, FINISH);
+    CJson *in = CreateJson();
+    for (uint32_t i = 0; i <= 30; i++) {
+        SetControllerMode(true);
+        SetThrowExceptionIndex(i);
+        int32_t status = 0;
+        (void)ProcessServerAuthSubSession((CompatibleBaseSubSession *)s, in, &status);
+        SetControllerMode(false);
+    }
+    FreeJson(in);
+    ResetModuleMock();
+    FreeAuthSession(s);
+    SUCCEED();
+}
+
+/* ProcessClientAuthSubSession(PROCESSING) error + peer error code.
+ * Covers: HandlePeerAuthError + DelTrustDeviceOnAuthErrorV1 path. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth033, TestSize.Level0)
+{
+    CompatibleAuthSubSession *s = NewAuthSession(TYPE_CLIENT_AUTH_SUB_SESSION, STATUS_PROCESSING);
+    ASSERT_NE(s, nullptr);
+    CJson *authParam = CreateJson();
+    AddIntToJson(authParam, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
+    AddBoolToJson(authParam, FIELD_IS_CLIENT, true);
+    AddStringToJson(authParam, FIELD_GROUP_ID, TEST_GROUP_ID);
+    AddIntToJson(authParam, FIELD_OS_ACCOUNT_ID, TEST_OS_ACCOUNT_ID);
+    const void *ptr = authParam;
+    s->paramsList.pushBack(&s->paramsList, &ptr);
+    s->currentIndex = 0;
+    SetProcessTaskResult(HC_ERROR, IGNORE_MSG);
+    CJson *in = CreateJson();
+    AddIntToJson(in, FIELD_RESULT_CODE, PEER_ACCOUNT_NOT_MATCH);
+    int32_t status = 0;
+    (void)ProcessClientAuthSubSession((CompatibleBaseSubSession *)s, in, nullptr, &status);
+    FreeJson(in);
+    ResetModuleMock();
+    FreeAuthSession(s);
+    SUCCEED();
+}
+
+/* ProcessServerAuthSubSession(INITIAL) exception loop 30 iters.
+ * Covers: CreateAndProcessServerAuthTask remaining branches. */
+HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth034, TestSize.Level0)
+{
+    CompatibleAuthSubSession *s = NewAuthSession(TYPE_SERVER_AUTH_SUB_SESSION, STATUS_INITIAL);
+    ASSERT_NE(s, nullptr);
+    CJson *authParam = CreateJson();
+    AddIntToJson(authParam, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
+    AddBoolToJson(authParam, FIELD_IS_CLIENT, false);
+    const void *ptr = authParam;
+    s->paramsList.pushBack(&s->paramsList, &ptr);
+    s->currentIndex = 0;
+    SetProcessTaskResult(HC_SUCCESS, CONTINUE);
+    CJson *in = CreateJson();
+    for (uint32_t i = 0; i <= 30; i++) {
+        SetControllerMode(true);
+        SetThrowExceptionIndex(i);
+        int32_t status = 0;
+        (void)ProcessServerAuthSubSession((CompatibleBaseSubSession *)s, in, &status);
+        SetControllerMode(false);
+    }
+    FreeJson(in);
+    ResetModuleMock();
+    FreeAuthSession(s);
+    SUCCEED();
+}
+
 }  // namespace
