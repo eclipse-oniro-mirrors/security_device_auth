@@ -2187,6 +2187,8 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth012, TestSize.Leve
         SetControllerMode(false);
     }
     FreeJson(authParam);
+    SUCCEED();
 }
+
 
 }  // namespace

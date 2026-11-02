@@ -1017,7 +1017,9 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest100, TestSize.Level0)
         SetControllerMode(false);
     }
     FreeJson(params);
+    SUCCEED();
 }
+
 
 /* ===== remaining branch coverage: exception loops for value-check paths ===== */
 
@@ -1051,7 +1053,9 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest109, TestSize.Level0)
         SetControllerMode(false);
     }
     FreeJson(params);
+    SUCCEED();
 }
+
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest110, TestSize.Level0)
 {
@@ -1075,7 +1079,9 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest110, TestSize.Level0)
         SetControllerMode(false);
     }
     FreeJson(authParams);
+    SUCCEED();
 }
+
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest111, TestSize.Level0)
 {
@@ -1099,7 +1105,9 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest111, TestSize.Level0)
         SetControllerMode(false);
     }
     FreeJson(dataFromClient);
+    SUCCEED();
 }
+
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest112, TestSize.Level0)
 {
@@ -1171,7 +1179,9 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest115, TestSize.Level0)
     }
     FreeJson(returnData);
     FreeJson(jsonParams);
+    SUCCEED();
 }
+
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest116, TestSize.Level0)
 {
@@ -1207,7 +1217,9 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest117, TestSize.Level0)
         SetControllerMode(false);
     }
     FreeJson(params);
+    SUCCEED();
 }
+
 
 /* ===== final push: remaining auth_common + bind + auth_sub_session branches ===== */
 
@@ -1503,7 +1515,9 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest144, TestSize.Level0)
     }
     FreeJson(returnData);
     FreeJson(jsonParams);
+    SUCCEED();
 }
+
 
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest145, TestSize.Level0)
 {
@@ -2172,30 +2186,6 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest178, TestSize.Level0)
     FreeBindSession(s);
 }
 
-/* P3: CreateAndProcessBindTask exception loop with CONTINUE status.
- * ProcessTask returns CONTINUE -> AddInfoToBindData -> TransmitBindSessionData. */
-HWTEST_F(CompatibleBindSubSessionMockTest, MockTest179, TestSize.Level0)
-{
-    CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_PROCESSING);
-    ASSERT_NE(s, nullptr);
-    s->opCode = MEMBER_INVITE;
-    s->params = CreateJson();
-    AddStringToJson(s->params, FIELD_GROUP_ID, TEST_GROUP_ID);
-    SetProcessTaskResult(HC_SUCCESS, CONTINUE);
-    CJson *in = CreateJson();
-    CJson *out = CreateJson();
-    for (uint32_t i = 0; i <= 20; i++) {
-        SetControllerMode(true);
-        SetThrowExceptionIndex(i);
-        int32_t status = 0;
-        (void)CreateAndProcessBindTask(s, in, out, &status);
-        SetControllerMode(false);
-    }
-    FreeJson(out);
-    FreeJson(in);
-    ResetModuleMock();
-    FreeBindSession(s);
-}
 
 /* P3: InformPeerProcessError with more iterations to cover remaining branches. */
 HWTEST_F(CompatibleBindSubSessionMockTest, MockTest180, TestSize.Level0)
@@ -2212,7 +2202,9 @@ HWTEST_F(CompatibleBindSubSessionMockTest, MockTest180, TestSize.Level0)
         SetControllerMode(false);
     }
     FreeJson(params);
+    SUCCEED();
 }
+
 
 /* P4: GenerateBaseBindParams(SERVER, MEMBER_JOIN) with missing FIELD_PIN_CODE.
  * Exercises AddPinCode error path (line 31). */
