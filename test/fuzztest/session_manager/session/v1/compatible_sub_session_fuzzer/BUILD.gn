@@ -21,6 +21,7 @@ deviceauth_llt_mock_src = "//base/security/device_auth/test/unittest/deviceauth/
 ##############################fuzztest##########################################
 # Built as ohos_unittest with manual -fsanitize=fuzzer flags to avoid the
 # global use_libfuzzer=true conflict with c_utils' -fsanitize-minimal-runtime.
+# For best exploration speed, run manually with: -dict=dict.txt -use_value_profile=1
 # Produces a real libfuzzer binary: LLVMFuzzerTestOneInput is the entry point.
 ohos_unittest("CompatibleSubSessionFuzzTest") {
   module_out_path = module_output_path
