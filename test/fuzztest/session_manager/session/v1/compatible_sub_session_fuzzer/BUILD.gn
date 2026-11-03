@@ -77,21 +77,21 @@ ohos_unittest("CompatibleSubSessionFuzzTest") {
   sources += group_auth_files
   sources -= [ "${group_auth_path}/src/group_auth_manager/group_auth_common/group_auth_data_operation.c" ]
   sources += [
-    "//base/security/device_auth/test/mock_inner/services/legacy/group_auth/",
+    "//base/security/device_auth/test/mock_inner/services/legacy/group_auth/" +
     "group_auth_manager/group_auth_common/group_auth_data_operation_mock.c",
   ]
   sources += group_auth_account_unrelated_files
   sources += group_manager_files
   sources -= [ "${group_manager_path}/src/group_operation/group_operation_common/group_operation_common.c" ]
   sources += [
-    "//base/security/device_auth/test/mock_inner/services/legacy/group_manager/",
+    "//base/security/device_auth/test/mock_inner/services/legacy/group_manager/" +
     "group_operation/group_operation_common/group_operation_common_mock.c",
   ]
   sources += group_manager_peer_to_peer_files
   sources -= [ "${group_data_manager_path}/src/group_data_manager.c" ]
   sources -= [ "${group_data_manager_path}/src/group_data_manager_util.c" ]
   sources += [
-    "//base/security/device_auth/test/mock_inner/services/data_manager/",
+    "//base/security/device_auth/test/mock_inner/services/data_manager/" +
     "group_data_manager/group_data_manager_mock.c",
   ]
   sources += authenticators_p2p_files
