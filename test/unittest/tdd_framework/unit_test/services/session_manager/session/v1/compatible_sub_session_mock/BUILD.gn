@@ -110,7 +110,9 @@ ohos_unittest("compatible_sub_session_mock_test") {
     "${deviceauth_llt_mock_src}/os_account_adapter_mock.c",
     "${deviceauth_llt_mock_src}/protocol_task_main_mock.c",
     "compatible_bind_sub_session_mock_test.cpp",
+    "compatible_bind_sub_session_mock_test_2.cpp",
     "compatible_auth_sub_session_mock_test.cpp",
+    "compatible_auth_sub_session_mock_test_2.cpp",
     "compatible_bind_sub_session_common_mock_test.cpp",
   ]
 
