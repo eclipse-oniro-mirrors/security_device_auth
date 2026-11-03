@@ -70,7 +70,6 @@ void SetAssertGroupTypeMatchResult(int32_t ret);
 void SetIsGroupExistByGroupId(bool exist);
 void SetIsUserTypeValid(bool valid);
 
-
 void SetCreateTaskResult(int32_t ret);
 void SetProcessTaskResult(int32_t ret, int32_t status);
 void ResetModuleMock(void);
@@ -138,7 +137,6 @@ static DeviceAuthCallback g_callback = {
     .onError = OnError,
     .onRequest = OnBindRequest,
 };
-
 
 static void DeleteDatabase(void)
 {
@@ -1901,8 +1899,6 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth012, TestSize.Leve
     SUCCEED();
 }
 
-
-
 /* ===== Auth high-difficulty: AddGeneralParams/FillAuthParams/AddUpgradeFlag ===== */
 
 /* AddGeneralParams + FillAuthParams: exception injection via GetAuthParamsVec. */
@@ -1978,7 +1974,6 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth015, TestSize.Leve
     SUCCEED();
 }
 
-
 /* ===== Cover reachable auth branches ===== */
 
 /* Extended exception injection for AddGeneralParams/FillAuthParams.
@@ -2050,7 +2045,6 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth019, TestSize.Leve
     FreeJson(params);
     SUCCEED();
 }
-
 
 /* ===== Batch cover auth branches ===== */
 
@@ -2139,7 +2133,6 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth024, TestSize.Leve
     if (session != nullptr) { DestroyCompatibleAuthSubSession(session); }
     FreeJson(params);
 }
-
 
 /* ===== Targeted auth: cover reachable branches ===== */
 
@@ -2240,7 +2233,6 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth029, TestSize.Leve
     if (session != nullptr) { DestroyCompatibleAuthSubSession(session); }
     FreeJson(params);
 }
-
 
 /* ===== Cover remaining auth reachable branches ===== */
 
@@ -2381,7 +2373,6 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth034, TestSize.Leve
     SUCCEED();
 }
 
-
 /* ===== Correct field name auth tests ===== */
 
 /* CreateClientAuthSubSession with invalid FIELD_KEY_LENGTH (too small).
@@ -2424,7 +2415,6 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth037, TestSize.Leve
     if (session != nullptr) { DestroyCompatibleAuthSubSession(session); }
     FreeJson(params);
 }
-
 
 /* ===== Cover auth_sub_session_common.c reachable branches ===== */
 
@@ -2491,7 +2481,6 @@ HWTEST_F(CompatibleAuthSubSessionMockTest, MockTestAccountAuth040, TestSize.Leve
     ResetGaMock();
     ResetDbMock();
 }
-
 
 /* CreateClientAuthSubSession with FIELD_IS_DEVICE_LEVEL=true + FIELD_IS_CLIENT=true.
  * Flow: ... -> GetCandidateGroups -> L98 isDeviceLevel && isClient = true -> L99.

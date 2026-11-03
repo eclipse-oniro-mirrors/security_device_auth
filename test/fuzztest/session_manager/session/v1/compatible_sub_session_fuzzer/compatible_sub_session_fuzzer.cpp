@@ -43,6 +43,13 @@ namespace OHOS {
 namespace {
 
 static const int32_t MOCK_OS_ACCOUNT_ID = 100;
+static const int32_t FUZZ_MAX_OP_CODE = 10;
+static const int32_t FUZZ_MAX_GROUP_TYPE = 512;
+static const int32_t FUZZ_MAX_USER_TYPE = 5;
+static const int32_t FUZZ_MAX_AUTH_FORM = 20;
+static const int32_t FUZZ_MAX_KEY_LENGTH = 2048;
+static const int32_t MOCK_REQ_ID = 123;
+static const int32_t MIN_FDP_BYTES = 4;
 
 static bool OnTransmit(int64_t requestId, const uint8_t *data, uint32_t dataLen)
 {
@@ -101,12 +108,12 @@ static DeviceAuthCallback g_callback = {
     .onRequest = OnBindRequest,
 };
 
-static const char *g_groupId = "E2EE6F830B176B2C96A9F99BFAE2A61F5D1490B9F4A090E9D8C2874C230C7C21";
-static const char *g_appId = "MockAppId";
-static const char *g_groupName = "MockGroup";
-static const char *g_authId = "MockAuthId";
-static const char *g_pinCode = "123456";
-static const char *g_udid = "52E2706717D5C39D736E134CC1E3BE1BAA2AA52DB7C76A37C749558BD2E6492C";
+static const char *G_GROUP_ID = "E2EE6F830B176B2C96A9F99BFAE2A61F5D1490B9F4A090E9D8C2874C230C7C21";
+static const char *G_APP_ID = "MockAppId";
+static const char *G_GROUP_NAME = "MockGroup";
+static const char *G_AUTH_ID = "MockAuthId";
+static const char *G_PIN_CODE = "123456";
+static const char *G_UDID = "52E2706717D5C39D736E134CC1E3BE1BAA2AA52DB7C76A37C749558BD2E6492C";
 
 /* ===== FDP-driven mock control ===== */
 
@@ -149,6 +156,10 @@ static void FuzzSetupMocks(FuzzedDataProvider &fdp)
     if (fdp.ConsumeBool()) {
         SetAssertGroupTypeMatchResult(fdp.ConsumeIntegral<int32_t>());
     }
+}
+
+static void FuzzSetupMocksPart2(FuzzedDataProvider &fdp)
+{
     if (fdp.ConsumeBool()) {
         SetIsGroupExistByGroupId(fdp.ConsumeBool());
     }
@@ -166,7 +177,7 @@ static void FuzzSetupMocks(FuzzedDataProvider &fdp)
     }
     if (fdp.ConsumeBool()) {
         int32_t ret = fdp.ConsumeIntegral<int32_t>();
-        int32_t status = fdp.ConsumeIntegralInRange<int32_t>(0, 5);
+        int32_t status = fdp.ConsumeIntegralInRange<int32_t>(0, FUZZ_MAX_USER_TYPE);
         SetProcessTaskResult(ret, status);
     }
     if (fdp.ConsumeBool()) {
@@ -191,6 +202,8 @@ static void FuzzSetupMocks(FuzzedDataProvider &fdp)
 
 /* ===== FDP-driven JSON construction ===== */
 
+static void FillBindParamsGroup2(FuzzedDataProvider &fdp, CJson *params);
+
 static CJson *BuildRandomBindParams(FuzzedDataProvider &fdp)
 {
     CJson *params = CreateJson();
@@ -201,37 +214,43 @@ static CJson *BuildRandomBindParams(FuzzedDataProvider &fdp)
         AddStringToJson(params, FIELD_REQUEST_ID, "123");
     }
     if (fdp.ConsumeBool()) {
-        AddIntToJson(params, FIELD_OPERATION_CODE, fdp.ConsumeIntegralInRange<int32_t>(0, 10));
+        AddIntToJson(params, FIELD_OPERATION_CODE, fdp.ConsumeIntegralInRange<int32_t>(0, FUZZ_MAX_OP_CODE));
     }
     if (fdp.ConsumeBool()) {
-        AddIntToJson(params, FIELD_GROUP_OP, fdp.ConsumeIntegralInRange<int32_t>(0, 10));
+        AddIntToJson(params, FIELD_GROUP_OP, fdp.ConsumeIntegralInRange<int32_t>(0, FUZZ_MAX_OP_CODE));
     }
     if (fdp.ConsumeBool()) {
-        AddStringToJson(params, FIELD_APP_ID, g_appId);
+        AddStringToJson(params, FIELD_APP_ID, G_APP_ID);
     }
     if (fdp.ConsumeBool()) {
-        AddStringToJson(params, FIELD_SERVICE_PKG_NAME, g_appId);
+        AddStringToJson(params, FIELD_SERVICE_PKG_NAME, G_APP_ID);
     }
     if (fdp.ConsumeBool()) {
-        AddIntToJson(params, FIELD_OS_ACCOUNT_ID, 100);
+        AddIntToJson(params, FIELD_OS_ACCOUNT_ID, MOCK_OS_ACCOUNT_ID);
     }
     if (fdp.ConsumeBool()) {
-        AddStringToJson(params, FIELD_GROUP_ID, g_groupId);
+        AddStringToJson(params, FIELD_GROUP_ID, G_GROUP_ID);
     }
     if (fdp.ConsumeBool()) {
-        AddStringToJson(params, FIELD_PIN_CODE, g_pinCode);
+        AddStringToJson(params, FIELD_PIN_CODE, G_PIN_CODE);
     }
     if (fdp.ConsumeBool()) {
-        AddStringToJson(params, FIELD_GROUP_NAME, g_groupName);
+        AddStringToJson(params, FIELD_GROUP_NAME, G_GROUP_NAME);
+    }
+    FillBindParamsGroup2(fdp, params);
+    return params;
+}
+
+static void FillBindParamsGroup2(FuzzedDataProvider &fdp, CJson *params)
+{
+    if (fdp.ConsumeBool()) {
+        AddIntToJson(params, FIELD_GROUP_TYPE, fdp.ConsumeIntegralInRange<int32_t>(0, FUZZ_MAX_GROUP_TYPE));
     }
     if (fdp.ConsumeBool()) {
-        AddIntToJson(params, FIELD_GROUP_TYPE, fdp.ConsumeIntegralInRange<int32_t>(0, 512));
+        AddIntToJson(params, FIELD_USER_TYPE, fdp.ConsumeIntegralInRange<int32_t>(0, FUZZ_MAX_USER_TYPE));
     }
     if (fdp.ConsumeBool()) {
-        AddIntToJson(params, FIELD_USER_TYPE, fdp.ConsumeIntegralInRange<int32_t>(0, 5));
-    }
-    if (fdp.ConsumeBool()) {
-        AddIntToJson(params, FIELD_GROUP_VISIBILITY, fdp.ConsumeIntegralInRange<int32_t>(0, 5));
+        AddIntToJson(params, FIELD_GROUP_VISIBILITY, fdp.ConsumeIntegralInRange<int32_t>(0, FUZZ_MAX_USER_TYPE));
     }
     if (fdp.ConsumeBool()) {
         AddIntToJson(params, FIELD_EXPIRE_TIME, fdp.ConsumeIntegral<int32_t>());
@@ -247,15 +266,14 @@ static CJson *BuildRandomBindParams(FuzzedDataProvider &fdp)
         AddIntToJson(params, FIELD_CONFIRMATION, REQUEST_ACCEPTED);
     }
     if (fdp.ConsumeBool()) {
-        AddStringToJson(params, FIELD_DEVICE_ID, g_authId);
+        AddStringToJson(params, FIELD_DEVICE_ID, G_AUTH_ID);
     }
     if (fdp.ConsumeBool()) {
-        AddStringToJson(params, FIELD_CONN_DEVICE_ID, g_udid);
+        AddStringToJson(params, FIELD_CONN_DEVICE_ID, G_UDID);
     }
     if (fdp.ConsumeBool()) {
-        AddStringToJson(params, FIELD_PEER_CONN_DEVICE_ID, g_udid);
+        AddStringToJson(params, FIELD_PEER_CONN_DEVICE_ID, G_UDID);
     }
-    return params;
 }
 
 static CJson *BuildRandomAuthParams(FuzzedDataProvider &fdp)
@@ -265,10 +283,10 @@ static CJson *BuildRandomAuthParams(FuzzedDataProvider &fdp)
         return nullptr;
     }
     if (fdp.ConsumeBool()) {
-        AddIntToJson(params, FIELD_AUTH_FORM, fdp.ConsumeIntegralInRange<int32_t>(0, 20));
+        AddIntToJson(params, FIELD_AUTH_FORM, fdp.ConsumeIntegralInRange<int32_t>(0, FUZZ_MAX_AUTH_FORM));
     }
     if (fdp.ConsumeBool()) {
-        AddStringToJson(params, FIELD_SERVICE_PKG_NAME, g_appId);
+        AddStringToJson(params, FIELD_SERVICE_PKG_NAME, G_APP_ID);
     }
     if (fdp.ConsumeBool()) {
         AddBoolToJson(params, FIELD_IS_CLIENT, fdp.ConsumeBool());
@@ -280,22 +298,22 @@ static CJson *BuildRandomAuthParams(FuzzedDataProvider &fdp)
         AddStringToJson(params, FIELD_REQUEST_ID, "123");
     }
     if (fdp.ConsumeBool()) {
-        AddIntToJson(params, FIELD_OS_ACCOUNT_ID, 100);
+        AddIntToJson(params, FIELD_OS_ACCOUNT_ID, MOCK_OS_ACCOUNT_ID);
     }
     if (fdp.ConsumeBool()) {
         AddIntToJson(params, FIELD_CONFIRMATION, REQUEST_ACCEPTED);
     }
     if (fdp.ConsumeBool()) {
-        AddStringToJson(params, FIELD_GROUP_ID, g_groupId);
+        AddStringToJson(params, FIELD_GROUP_ID, G_GROUP_ID);
     }
     if (fdp.ConsumeBool()) {
-        AddStringToJson(params, FIELD_PEER_CONN_DEVICE_ID, g_udid);
+        AddStringToJson(params, FIELD_PEER_CONN_DEVICE_ID, G_UDID);
     }
     if (fdp.ConsumeBool()) {
-        AddIntToJson(params, FIELD_KEY_LENGTH, fdp.ConsumeIntegralInRange<int32_t>(0, 2048));
+        AddIntToJson(params, FIELD_KEY_LENGTH, fdp.ConsumeIntegralInRange<int32_t>(0, FUZZ_MAX_KEY_LENGTH));
     }
     if (fdp.ConsumeBool()) {
-        AddStringToJson(params, FIELD_PIN_CODE, g_pinCode);
+        AddStringToJson(params, FIELD_PIN_CODE, G_PIN_CODE);
     }
     return params;
 }
@@ -313,16 +331,16 @@ static CJson *BuildRandomProcessInput(FuzzedDataProvider &fdp)
         AddIntToJson(in, FIELD_GROUP_ERROR_MSG, fdp.ConsumeIntegral<int32_t>());
     }
     if (fdp.ConsumeBool()) {
-        AddStringToJson(in, FIELD_GROUP_ID, g_groupId);
+        AddStringToJson(in, FIELD_GROUP_ID, G_GROUP_ID);
     }
     if (fdp.ConsumeBool()) {
-        AddStringToJson(in, FIELD_SERVICE_PKG_NAME, g_appId);
+        AddStringToJson(in, FIELD_SERVICE_PKG_NAME, G_APP_ID);
     }
     if (fdp.ConsumeBool()) {
-        AddStringToJson(in, FIELD_CONN_DEVICE_ID, g_udid);
+        AddStringToJson(in, FIELD_CONN_DEVICE_ID, G_UDID);
     }
     if (fdp.ConsumeBool()) {
-        AddIntToJson(in, FIELD_AUTH_FORM, fdp.ConsumeIntegralInRange<int32_t>(0, 20));
+        AddIntToJson(in, FIELD_AUTH_FORM, fdp.ConsumeIntegralInRange<int32_t>(0, FUZZ_MAX_AUTH_FORM));
     }
     return in;
 }
@@ -451,7 +469,7 @@ static void FuzzDispatcher(FuzzedDataProvider &fdp)
         return;
     }
     CompatibleBaseSubSession *session = nullptr;
-    SubSessionTypeValue type = (SubSessionTypeValue)fdp.ConsumeIntegralInRange<int32_t>(0, 10);
+    SubSessionTypeValue type = (SubSessionTypeValue)fdp.ConsumeIntegralInRange<int32_t>(0, FUZZ_MAX_OP_CODE);
     (void)CreateCompatibleSubSession(type, params, &g_callback, &session);
     if (session != nullptr) {
         CJson *in = BuildRandomProcessInput(fdp);
@@ -483,17 +501,17 @@ static void FuzzGenerateBaseBindParams(FuzzedDataProvider &fdp)
     session->base.curTaskId = 0;
     session->base.status = STATUS_INITIAL;
     session->base.callback = &g_callback;
-    session->opCode = fdp.ConsumeIntegralInRange<int32_t>(0, 10);
+    session->opCode = fdp.ConsumeIntegralInRange<int32_t>(0, FUZZ_MAX_OP_CODE);
     session->moduleType = DAS_MODULE;
-    session->reqId = 123;
-    session->osAccountId = 100;
+    session->reqId = MOCK_REQ_ID;
+    session->osAccountId = MOCK_OS_ACCOUNT_ID;
     session->channelType = SERVICE_CHANNEL;
     session->channelId = DEFAULT_CHANNEL_ID;
     session->params = CreateJson();
     CJson *jsonParams = BuildRandomBindParams(fdp);
     if (jsonParams != nullptr) {
         int32_t isClient = fdp.ConsumeBool() ? CLIENT : SERVER;
-        (void)GenerateBaseBindParams(100, isClient, jsonParams, session);
+        (void)GenerateBaseBindParams(MOCK_OS_ACCOUNT_ID, isClient, jsonParams, session);
         FreeJson(jsonParams);
     }
     if (session->params != nullptr) {
@@ -523,17 +541,18 @@ bool FuzzDoCallback(const uint8_t *data, size_t size)
     if (data == nullptr || size < 1) {
         return false;
     }
-    static bool g_mockRegistered = false;
-    if (!g_mockRegistered) {
+    static bool gMockRegistered = false;
+    if (!gMockRegistered) {
         RegisterMockGroupAuth();
-        g_mockRegistered = true;
+        gMockRegistered = true;
     }
     FuzzedDataProvider fdp(data, size);
     FuzzResetMocks(fdp);
     FuzzSetupMocks(fdp);
+    FuzzSetupMocksPart2(fdp);
     uint32_t callCount = fdp.ConsumeIntegralInRange<uint32_t>(1, 3);
     for (uint32_t i = 0; i < callCount; i++) {
-        if (fdp.remaining_bytes() < 4) {
+        if (fdp.remaining_bytes() < MIN_FDP_BYTES) {
             break;
         }
         uint32_t funcId = fdp.ConsumeIntegral<uint32_t>();
