@@ -14,16 +14,17 @@
 import("//base/security/device_auth/deps_adapter/deviceauth_hals.gni")
 import("//base/security/device_auth/services/deviceauth.gni")
 
+#####################hydra-fuzz###################
+import("//build/config/features.gni")
+import("//build/ohos.gni")
 import("//build/test.gni")
 module_output_path = "device_auth/device_auth"
 deviceauth_llt_mock_src = "//base/security/device_auth/test/unittest/deviceauth/source"
 
 ##############################fuzztest##########################################
-# Built as ohos_unittest with manual -fsanitize=fuzzer flags to avoid the
-# global use_libfuzzer=true conflict with c_utils' -fsanitize-minimal-runtime.
-# Produces a real libfuzzer binary: LLVMFuzzerTestOneInput is the entry point.
-ohos_unittest("CompatibleSubSessionFuzzTest") {
+ohos_fuzztest("CompatibleSubSessionFuzzTest") {
   module_out_path = module_output_path
+  fuzz_config_file = "${deviceauth_path}/test/fuzztest/session_manager/session/v1/compatible_sub_session_fuzzer"
 
   include_dirs = inc_path + hals_inc_path
   include_dirs += [
@@ -141,9 +142,7 @@ ohos_unittest("CompatibleSubSessionFuzzTest") {
   cflags += [
     "-DDEV_AUTH_WORK_THREAD_STACK_SIZE=${device_auth_hichain_thread_stack_size}",
     "-DMAX_AUTH_SESSION_COUNT=${max_auth_session_count}",
-    "-fsanitize=fuzzer-no-link",
   ]
-  ldflags = [ "-fsanitize=fuzzer" ]
   if (target_cpu == "arm") {
     cflags += [ "-DBINDER_IPC_32BIT" ]
   }
@@ -154,6 +153,8 @@ ohos_unittest("CompatibleSubSessionFuzzTest") {
     "bounds_checking_function:libsec_shared",
     "cJSON:cjson",
     "hilog:libhilog",
+    "hisysevent:libhisysevent",
+    "hitrace:hitrace_meter",
     "huks:libhukssdk",
     "mbedtls:mbedtls_shared",
     "openssl:libcrypto_static",
