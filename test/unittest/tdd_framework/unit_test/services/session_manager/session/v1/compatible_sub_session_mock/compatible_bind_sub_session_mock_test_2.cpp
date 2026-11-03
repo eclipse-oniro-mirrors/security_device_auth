@@ -178,28 +178,6 @@ static void FreeBindSession(CompatibleBindSubSession *s)
     HcFree(s);
 }
 
-static CompatibleAuthSubSession *NewAuthSession(int32_t type, int32_t status)
-{
-    auto *s = (CompatibleAuthSubSession *)HcMalloc(sizeof(CompatibleAuthSubSession), 0);
-    if (s == nullptr) {
-        return nullptr;
-    }
-    s->base.type = type;
-    s->base.appId = nullptr;
-    s->base.curTaskId = TEST_CUR_TASK_ID;
-    s->base.status = (SubSessionStatusValue)status;
-    s->base.callback = &g_callback;
-    CreateAuthParamsList(&s->paramsList);
-    s->currentIndex = 0;
-    CJson *authParam = CreateJson();
-    AddIntToJson(authParam, FIELD_AUTH_FORM, AUTH_FORM_ACCOUNT_UNRELATED);
-    AddBoolToJson(authParam, FIELD_IS_CLIENT, true);
-    AddStringToJson(authParam, FIELD_REQUEST_ID, "123");
-    AddStringToJson(authParam, FIELD_GROUP_ID, TEST_GROUP_ID);
-    AddStringToJson(authParam, FIELD_SERVICE_PKG_NAME, TEST_SERVICE_PKG_NAME);
-    s->paramsList.pushBack(&s->paramsList, (const void **)&authParam);
-    return s;
-}
 
 static void FreeAuthSession(CompatibleAuthSubSession *s)
 {
