@@ -1965,7 +1965,4 @@ HWTEST_F(CompatibleBindProcessMockTest, MockTest230, TestSize.Level0)
     FreeBindSession(s);
     SUCCEED();
 }
-
-
-
 }  // namespace
