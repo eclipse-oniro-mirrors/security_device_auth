@@ -101,6 +101,7 @@ group("deviceauth_test_build") {
       "fuzztest/session_manager/session/v2/expand_sub_session/expand_process_lib/pubkeyexchange_fuzzer:fuzztest",
       "fuzztest/session_manager/session/v2/expand_sub_session/expand_process_lib/savetrustedinfo_fuzzer:fuzztest",
       "fuzztest/session_manager/session/v2/expand_sub_session/expandsubsession_fuzzer:fuzztest",
+      "fuzztest/session_manager/session/v1/compatiblesubsession_fuzzer:fuzztest",
     ]
   }
   }

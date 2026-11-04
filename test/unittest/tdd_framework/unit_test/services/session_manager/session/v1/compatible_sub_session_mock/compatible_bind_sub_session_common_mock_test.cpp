@@ -251,8 +251,6 @@ public:
 
 HWTEST_F(CompatibleBindSubSessionCommonMockTest, MockTest024, TestSize.Level0)
 {
-    /* GenerateBaseModuleParams: inject cJSON/malloc failures to cover each
-     * AddXToJson error branch (AddBoolToJson/AddStringToJson/AddIntToJson fail). */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
     ASSERT_NE(s, nullptr);
     for (uint32_t i = 0; i <= 25; i++) {
@@ -265,25 +263,6 @@ HWTEST_F(CompatibleBindSubSessionCommonMockTest, MockTest024, TestSize.Level0)
     }
     FreeBindSession(s);
 }
-
-HWTEST_F(CompatibleBindSubSessionCommonMockTest, MockTest025, TestSize.Level0)
-{
-    /* AddInfoToBindData: inject failures to cover AddGroupInfoToSendData/
-     * AddDevInfoToSendData/AddRequestInfoToSendData/AddCompatibleInfoToSendData
-     * JSON-add error branches. */
-    CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
-    ASSERT_NE(s, nullptr);
-    for (uint32_t i = 0; i <= 25; i++) {
-        SetControllerMode(true);
-        SetThrowExceptionIndex(i);
-        CJson *data = CreateJson();
-        (void)AddInfoToBindData(true, s, data);
-        FreeJson(data);
-        SetControllerMode(false);
-    }
-    FreeBindSession(s);
-}
-
 /* ===== crafted-input value-check branches ===== */
 
 HWTEST_F(CompatibleBindSubSessionCommonMockTest, MockTest037, TestSize.Level0)
@@ -330,8 +309,6 @@ HWTEST_F(CompatibleBindSubSessionCommonMockTest, MockTest038, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionCommonMockTest, MockTest039, TestSize.Level0)
 {
-    /* AddInfoToBindData with missing fields -> AddGroupInfoToSendData/AddDevInfoToSendData
-     * value-check branches (groupId/groupName/authId/udid null). */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
     ASSERT_NE(s, nullptr);
     /* params has only some fields; test each missing-field path */
@@ -348,8 +325,6 @@ HWTEST_F(CompatibleBindSubSessionCommonMockTest, MockTest039, TestSize.Level0)
 
 HWTEST_F(CompatibleBindSubSessionCommonMockTest, MockTest040, TestSize.Level0)
 {
-    /* GenerateBaseModuleParams with session->params missing fields ->
-     * AddGroupAndDevInfoToParams value-check branches. */
     CompatibleBindSubSession *s = NewBindSession(TYPE_CLIENT_BIND_SUB_SESSION, STATUS_INITIAL);
     ASSERT_NE(s, nullptr);
     FreeJson(s->params);

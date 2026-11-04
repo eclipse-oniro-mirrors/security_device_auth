@@ -285,6 +285,7 @@ HWTEST_F(CompatibleAuthSubSessionTest, CompatibleSubSessionTest017, TestSize.Lev
 HWTEST_F(CompatibleAuthSubSessionTest, CompatibleSubSessionTest018, TestSize.Level0)
 {
     DestroyCompatibleAuthSubSession(nullptr);
+    SUCCEED();
 }
 
 /* ===================== auth util / common (constructed session) ===================== */

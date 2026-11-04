@@ -110,7 +110,9 @@ ohos_unittest("compatible_sub_session_mock_test") {
     "${deviceauth_llt_mock_src}/os_account_adapter_mock.c",
     "${deviceauth_llt_mock_src}/protocol_task_main_mock.c",
     "compatible_bind_sub_session_mock_test.cpp",
+    "compatible_bind_sub_session_mock_test_2.cpp",
     "compatible_auth_sub_session_mock_test.cpp",
+    "compatible_auth_sub_session_mock_test_2.cpp",
     "compatible_bind_sub_session_common_mock_test.cpp",
   ]
 
@@ -137,10 +139,13 @@ ohos_unittest("compatible_sub_session_mock_test") {
 
   include_dirs += [
     "//base/security/device_auth/test/mock_inner/services/frameworks/module",
+    "//base/security/device_auth/test/mock_inner/services/frameworks/account_task_manager_mock",
     "//base/security/device_auth/test/mock_inner/services/legacy/group_auth/group_auth_manager/group_auth_common",
+    "//base/security/device_auth/test/mock_inner/services/legacy/group_auth/group_auth_mock",
     "//base/security/device_auth/test/mock_inner/services/data_manager/group_data_manager",
     "//base/security/device_auth/test/mock_inner/services/legacy/group_manager/group_operation/group_operation_common",
   ]
+  sources += [ "//base/security/device_auth/test/mock_inner/services/legacy/group_auth/group_auth_mock/group_auth_mock.c" ]
   deps = []
 
   external_deps = [
