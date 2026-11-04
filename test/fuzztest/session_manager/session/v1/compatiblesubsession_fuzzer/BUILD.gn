@@ -64,12 +64,9 @@ ohos_fuzztest("CompatibleSubSessionFuzzTest") {
   sources += operation_database_manager_files
   sources += ext_plugin_manager_files
   sources += session_manager_files
-  sources -= [
-    "${session_manager_path}/src/dev_session_mgr.c",
-    "${session_manager_path}/src/session/dev_session_fwk.c",
-  ]
   sources += session_mini_files
   sources += session_v1_files
+  sources += session_v2_mock_files
   sources += creds_manager_files
   sources += broadcast_manager_files
   sources += soft_bus_channel_mock_files
@@ -133,6 +130,7 @@ ohos_fuzztest("CompatibleSubSessionFuzzTest") {
     "ENABLE_P2P_AUTH_ISO",
     "ENABLE_P2P_AUTH_EC_SPEKE",
     "DEV_AUTH_FUZZ_TEST",
+    "DEV_AUTH_FUNC_TEST",
     "ENABLE_PSEUDONYM",
     "DEFAULT_V2_NOT_SUPPORT",
     "HILOG_ENABLE",
