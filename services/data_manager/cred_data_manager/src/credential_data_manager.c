@@ -720,8 +720,10 @@ static void LoadOsAccountCredDb(int32_t osAccountId)
     }
     HcParcel parcel = CreateParcel(0, 0);
     int32_t ret = EnsureCredFileEncState(filePath, osAccountId);
-    DEV_AUTH_REPORT_FAULT_EVENT_WITH_ERR_CODE(CRED_FILE_UPGRADE_EVENT,
-        PROCESS_CRED_FILE_UPGRADE, ret);
+    if (ret != IS_ERR_HUKS_KEY_ALREADY_EXIST) {
+        DEV_AUTH_REPORT_FAULT_EVENT_WITH_ERR_CODE(CRED_FILE_UPGRADE_EVENT,
+            PROCESS_CRED_FILE_UPGRADE, ret);
+    }
     (void)ret;
     if (!ReadCredFileToParcel(filePath, osAccountId, &parcel)) {
         DeleteParcel(&parcel);
