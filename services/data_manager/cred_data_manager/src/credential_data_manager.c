@@ -674,7 +674,7 @@ static int32_t EnsureCredFileEncState(const char *filePath, int32_t osAccountId)
         DeleteParcel(&parcel);
         return IS_ERR_ALLOC_MEMORY;
     }
-    int32_t ret;
+    int32_t ret = HC_ERROR;
     if (!SaveParcelToFile(filePath, &parcel, osAccountId, true)) {
         LOGW("[CRED#DB]: upgrade write failed, rollback key! [Id]: %" LOG_PUB "d", osAccountId);
         DeleteCredFileEncKey(osAccountId);
@@ -722,6 +722,7 @@ static void LoadOsAccountCredDb(int32_t osAccountId)
     int32_t ret = EnsureCredFileEncState(filePath, osAccountId);
     DEV_AUTH_REPORT_FAULT_EVENT_WITH_ERR_CODE(CRED_FILE_UPGRADE_EVENT,
         PROCESS_CRED_FILE_UPGRADE, ret);
+    (void)ret;
     if (!ReadCredFileToParcel(filePath, osAccountId, &parcel)) {
         DeleteParcel(&parcel);
         return;
