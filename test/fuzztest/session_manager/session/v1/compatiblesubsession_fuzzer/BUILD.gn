@@ -24,7 +24,7 @@ deviceauth_llt_mock_src = "//base/security/device_auth/test/unittest/deviceauth/
 ##############################fuzztest##########################################
 ohos_fuzztest("CompatibleSubSessionFuzzTest") {
   module_out_path = module_output_path
-  fuzz_config_file = "${deviceauth_path}/test/fuzztest/session_manager/session/v1/compatible_sub_session_fuzzer"
+  fuzz_config_file = "${deviceauth_path}/test/fuzztest/session_manager/session/v1/compatiblesubsession_fuzzer"
 
   include_dirs = inc_path + hals_inc_path
   include_dirs += [
