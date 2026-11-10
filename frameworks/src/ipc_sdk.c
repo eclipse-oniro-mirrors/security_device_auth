@@ -55,6 +55,7 @@ static IpcProxyCbInfo g_ipcProxyCbList = { 0 };
 static IpcProxyCbInfo g_ipcListenerCbList = { 0 };
 static HcMutex g_ipcMutex;
 static HcMutex g_devAuthInitMutex;
+static pthread_mutex_t g_devAuthInitMutexGuard = PTHREAD_MUTEX_INITIALIZER;
 static bool g_devAuthInitMutexInited = false;
 static bool g_devAuthServiceStatus = false;
 
@@ -1355,13 +1356,24 @@ DEVICE_AUTH_API_PUBLIC int32_t CancelAuthRequest(int64_t requestId, const char *
     return ret;
 }
 
-DEVICE_AUTH_API_PUBLIC int InitDeviceAuthService(void)
+static int32_t EnsureDevAuthInitMutex(void)
 {
+    pthread_mutex_lock(&g_devAuthInitMutexGuard);
     if (!g_devAuthInitMutexInited) {
         if (InitHcMutex(&g_devAuthInitMutex, false) != HC_SUCCESS) {
+            pthread_mutex_unlock(&g_devAuthInitMutexGuard);
             return HC_ERROR;
         }
         g_devAuthInitMutexInited = true;
+    }
+    pthread_mutex_unlock(&g_devAuthInitMutexGuard);
+    return HC_SUCCESS;
+}
+
+DEVICE_AUTH_API_PUBLIC int InitDeviceAuthService(void)
+{
+    if (EnsureDevAuthInitMutex() != HC_SUCCESS) {
+        return HC_ERROR;
     }
     (void)LockHcMutex(&g_devAuthInitMutex);
     if (g_devAuthServiceStatus == true) {

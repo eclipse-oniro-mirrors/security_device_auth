@@ -33,27 +33,27 @@ static SessionNodeVec g_SessionNodeVec;
 static bool g_IsinitSessionNodeVec = false;
 static HcMutex *g_sessionMutex = NULL;
 
-static int32_t CreateKeyAgreeSessionMgr(void)
+static pthread_mutex_t g_sessionMutexInitGuard = PTHREAD_MUTEX_INITIALIZER;
+
+static int32_t EnsureSessionMutex(void)
 {
+    pthread_mutex_lock(&g_sessionMutexInitGuard);
     if (g_sessionMutex == NULL) {
         g_sessionMutex = (HcMutex *)HcMalloc(sizeof(HcMutex), 0);
         if (g_sessionMutex == NULL) {
+            pthread_mutex_unlock(&g_sessionMutexInitGuard);
             LOGE("Alloc sessionMutex failed");
             return HC_ERR_ALLOC_MEMORY;
         }
         if (InitHcMutex(g_sessionMutex, false) != HC_SUCCESS) {
-            LOGE("Init mutex failed");
             HcFree(g_sessionMutex);
             g_sessionMutex = NULL;
+            pthread_mutex_unlock(&g_sessionMutexInitGuard);
+            LOGE("Init mutex failed");
             return HC_ERROR;
         }
     }
-    (void)LockHcMutex(g_sessionMutex);
-    if (!g_IsinitSessionNodeVec) {
-        g_IsinitSessionNodeVec = true;
-        g_SessionNodeVec = CREATE_HC_VECTOR(SessionNodeVec);
-    }
-    UnlockHcMutex(g_sessionMutex);
+    pthread_mutex_unlock(&g_sessionMutexInitGuard);
     return HC_SUCCESS;
 }
 
@@ -74,17 +74,18 @@ static uint32_t AddSessionInner(KeyAgreeSession *session, SpekeSession *spekeSes
         LOGE("Can not get session or sessionId!");
         return HC_ERR_INVALID_PARAMS;
     }
-    if (g_IsinitSessionNodeVec == false) {
-        LOGI("Manager is not create, start create session manager!");
-        if (CreateKeyAgreeSessionMgr() != HC_SUCCESS) {
-            LOGE("Create Session Mgr fail!");
-            return HC_ERROR;
-        }
+    if (EnsureSessionMutex() != HC_SUCCESS) {
+        LOGE("Create Session Mgr fail!");
+        return HC_ERROR;
     }
     SessionNode sessionNode;
     sessionNode.session = session;
     sessionNode.spekeSession = spekeSession;
     (void)LockHcMutex(g_sessionMutex);
+    if (!g_IsinitSessionNodeVec) {
+        g_SessionNodeVec = CREATE_HC_VECTOR(SessionNodeVec);
+        g_IsinitSessionNodeVec = true;
+    }
     if (g_SessionNodeVec.pushBack(&g_SessionNodeVec, &sessionNode) == NULL) {
         LOGE("Failed to push session node!");
         DestroyKeyAgreeSessionMgr();
@@ -101,13 +102,18 @@ static uint32_t DeleteSessionInner(KeyAgreeSession *session)
         LOGE("Can not get session or sessionId");
         return HC_ERR_INVALID_PARAMS;
     }
-    if (g_IsinitSessionNodeVec == false) {
+    if (EnsureSessionMutex() != HC_SUCCESS) {
         LOGE("Manager is not create!");
         return HC_ERROR;
     }
     uint32_t index;
     SessionNode *sessionNode = NULL;
     (void)LockHcMutex(g_sessionMutex);
+    if (g_IsinitSessionNodeVec == false) {
+        LOGE("Manager is not create!");
+        UnlockHcMutex(g_sessionMutex);
+        return HC_ERROR;
+    }
     FOR_EACH_HC_VECTOR(g_SessionNodeVec, index, sessionNode) {
         if ((sessionNode != NULL) && (sessionNode->session != NULL) &&
             (sessionNode->session->sessionId == session->sessionId)) {
@@ -128,7 +134,7 @@ static SpekeSession *GetSessionInner(KeyAgreeSession *session)
         LOGE("Can not get session or sessionId");
         return NULL;
     }
-    if (g_IsinitSessionNodeVec == false) {
+    if (EnsureSessionMutex() != HC_SUCCESS) {
         LOGE("Manager is not create!");
         return NULL;
     }
@@ -136,6 +142,11 @@ static SpekeSession *GetSessionInner(KeyAgreeSession *session)
     SessionNode *sessionNode = NULL;
     SpekeSession *spekeSession = NULL;
     (void)LockHcMutex(g_sessionMutex);
+    if (g_IsinitSessionNodeVec == false) {
+        LOGE("Manager is not create!");
+        UnlockHcMutex(g_sessionMutex);
+        return NULL;
+    }
     FOR_EACH_HC_VECTOR(g_SessionNodeVec, index, sessionNode) {
         if ((sessionNode != NULL) && (sessionNode->session != NULL) &&
             (sessionNode->session->sessionId == session->sessionId)) {
