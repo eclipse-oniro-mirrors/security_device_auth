@@ -582,9 +582,9 @@ static void DoCreateGroup(HcTaskBase *baseTask)
     int32_t result = CreateGroup(task->osAccountId, task->params, &returnJsonStr);
     RecordOrReportFaultEvent(task, returnJsonStr, PROCESS_CREATE_GROUP, result);
     if (result != HC_SUCCESS) {
-        ProcessErrorCallback(task->reqId, GROUP_CREATE, result, NULL, task->cb);
+        ProcessErrorCallback(task->reqId, GROUP_CREATE, result, NULL, &task->cb);
     } else {
-        ProcessFinishCallback(task->reqId, GROUP_CREATE, returnJsonStr, task->cb);
+        ProcessFinishCallback(task->reqId, GROUP_CREATE, returnJsonStr, &task->cb);
         FreeJsonString(returnJsonStr);
     }
     DecreaseCriticalCnt();
@@ -600,9 +600,9 @@ static void DoDeleteGroup(HcTaskBase *baseTask)
     int32_t result = DeleteGroup(task->osAccountId, task->params, &returnJsonStr);
     RecordOrReportFaultEvent(task, NULL, PROCESS_DELETE_GROUP, result);
     if (result != HC_SUCCESS) {
-        ProcessErrorCallback(task->reqId, GROUP_DISBAND, result, NULL, task->cb);
+        ProcessErrorCallback(task->reqId, GROUP_DISBAND, result, NULL, &task->cb);
     } else {
-        ProcessFinishCallback(task->reqId, GROUP_DISBAND, returnJsonStr, task->cb);
+        ProcessFinishCallback(task->reqId, GROUP_DISBAND, returnJsonStr, &task->cb);
         FreeJsonString(returnJsonStr);
     }
     DecreaseCriticalCnt();
@@ -614,7 +614,7 @@ static void DoDeleteMember(HcTaskBase *baseTask)
     SET_LOG_MODE_AND_ERR_TRACE(TRACE_MODE, true);
     SET_TRACE_ID(task->reqId);
     LOGI("[Start]: DoDeleteMember! [ReqId]: %" LOG_PUB PRId64, task->reqId);
-    int32_t result = DeleteMemberFromPeerToPeerGroup(task->osAccountId, task->reqId, task->params, task->cb);
+    int32_t result = DeleteMemberFromPeerToPeerGroup(task->osAccountId, task->reqId, task->params, &task->cb);
     RecordOrReportFaultEvent(task, NULL, PROCESS_DELETE_MEMBER_FROM_GROUP, result);
     DecreaseCriticalCnt();
 }
@@ -1987,8 +1987,7 @@ int32_t BindCallbackToTask(GroupManagerTask *task, const CJson *jsonParams)
         LOGE("Failed to get appId from jsonParams!");
         return HC_ERR_JSON_GET;
     }
-    task->cb = GetGMCallbackByAppId(appId);
-    if (task->cb == NULL) {
+    if (GetGMCallbackCopyByAppId(appId, &task->cb) != HC_SUCCESS) {
         LOGE("Failed to find callback by appId! [AppId]: %" LOG_PUB "s", appId);
         return HC_ERR_CALLBACK_NOT_FOUND;
     }

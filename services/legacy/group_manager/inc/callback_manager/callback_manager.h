@@ -37,6 +37,7 @@ void DestroyCallbackManager(void);
 int32_t RegGroupManagerCallback(const char *appId, const DeviceAuthCallback *callback);
 int32_t UnRegGroupManagerCallback(const char *appId);
 const DeviceAuthCallback *GetGMCallbackByAppId(const char *appId);
+int32_t GetGMCallbackCopyByAppId(const char *appId, DeviceAuthCallback *outCallback);
 
 #ifdef __cplusplus
 }

@@ -26,7 +26,7 @@ typedef struct {
     int32_t osAccountId;
     int32_t opCode;
     CJson *params;
-    const DeviceAuthCallback *cb;
+    DeviceAuthCallback cb;
 } GroupManagerTask;
 
 typedef struct {
