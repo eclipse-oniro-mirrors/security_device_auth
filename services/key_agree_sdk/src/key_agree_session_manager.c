@@ -63,11 +63,6 @@ static void DestroyKeyAgreeSessionMgr(void)
         LOGI("Session vec is empty, destroy vec");
         DESTROY_HC_VECTOR(SessionNodeVec, &g_SessionNodeVec);
         g_IsinitSessionNodeVec = false;
-        if (g_sessionMutex != NULL) {
-            DestroyHcMutex(g_sessionMutex);
-            HcFree(g_sessionMutex);
-            g_sessionMutex = NULL;
-        }
         return;
     }
     LOGI("Session vec is not empty, do nothing");
@@ -89,11 +84,14 @@ static uint32_t AddSessionInner(KeyAgreeSession *session, SpekeSession *spekeSes
     SessionNode sessionNode;
     sessionNode.session = session;
     sessionNode.spekeSession = spekeSession;
+    (void)LockHcMutex(g_sessionMutex);
     if (g_SessionNodeVec.pushBack(&g_SessionNodeVec, &sessionNode) == NULL) {
         LOGE("Failed to push session node!");
         DestroyKeyAgreeSessionMgr();
+        UnlockHcMutex(g_sessionMutex);
         return HC_ERR_ALLOC_MEMORY;
     }
+    UnlockHcMutex(g_sessionMutex);
     return HC_SUCCESS;
 }
 
@@ -109,15 +107,18 @@ static uint32_t DeleteSessionInner(KeyAgreeSession *session)
     }
     uint32_t index;
     SessionNode *sessionNode = NULL;
+    (void)LockHcMutex(g_sessionMutex);
     FOR_EACH_HC_VECTOR(g_SessionNodeVec, index, sessionNode) {
         if ((sessionNode != NULL) && (sessionNode->session != NULL) &&
             (sessionNode->session->sessionId == session->sessionId)) {
             SessionNode tempSessionNode;
             HC_VECTOR_POPELEMENT(&g_SessionNodeVec, &tempSessionNode, index);
+            UnlockHcMutex(g_sessionMutex);
             return HC_SUCCESS;
         }
     }
     DestroyKeyAgreeSessionMgr();
+    UnlockHcMutex(g_sessionMutex);
     return HC_ERROR;
 }
 
@@ -133,13 +134,17 @@ static SpekeSession *GetSessionInner(KeyAgreeSession *session)
     }
     uint32_t index;
     SessionNode *sessionNode = NULL;
+    SpekeSession *spekeSession = NULL;
+    (void)LockHcMutex(g_sessionMutex);
     FOR_EACH_HC_VECTOR(g_SessionNodeVec, index, sessionNode) {
         if ((sessionNode != NULL) && (sessionNode->session != NULL) &&
             (sessionNode->session->sessionId == session->sessionId)) {
-            return sessionNode->spekeSession;
+            spekeSession = sessionNode->spekeSession;
+            break;
         }
     }
-    return NULL;
+    UnlockHcMutex(g_sessionMutex);
+    return spekeSession;
 }
 
 static KeyAgreeSessionManager g_sessionManager = {
