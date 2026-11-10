@@ -17,21 +17,34 @@
 
 #include "device_auth_defines.h"
 #include "hc_log.h"
+#include "hc_mutex.h"
 
 static HcTaskThread *g_taskThread = NULL;
+static HcMutex g_taskMutex;
+static bool g_taskMutexInited = false;
 
 int32_t PushTask(HcTaskBase *baseTask)
 {
+    (void)LockHcMutex(&g_taskMutex);
     if (g_taskThread == NULL) {
+        UnlockHcMutex(&g_taskMutex);
         LOGE("Task thread is NULL!");
         return HC_ERR_NULL_PTR;
     }
     g_taskThread->pushTask(g_taskThread, baseTask);
+    UnlockHcMutex(&g_taskMutex);
     return HC_SUCCESS;
 }
 
 int32_t InitTaskManager(void)
 {
+    if (!g_taskMutexInited) {
+        if (InitHcMutex(&g_taskMutex, false) != HC_SUCCESS) {
+            LOGE("Init task mutex failed!");
+            return HC_ERR_INIT_FAILED;
+        }
+        g_taskMutexInited = true;
+    }
     if (g_taskThread != NULL) {
         LOGD("Task thread is running!");
         return HC_SUCCESS;
@@ -60,10 +73,12 @@ int32_t InitTaskManager(void)
 
 void DestroyTaskManager(void)
 {
+    (void)LockHcMutex(&g_taskMutex);
     if (g_taskThread != NULL) {
         g_taskThread->stopAndClear(g_taskThread);
         DestroyHcTaskThread(g_taskThread);
         HcFree(g_taskThread);
         g_taskThread = NULL;
     }
+    UnlockHcMutex(&g_taskMutex);
 }
