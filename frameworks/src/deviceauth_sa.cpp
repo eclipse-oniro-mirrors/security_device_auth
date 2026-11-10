@@ -214,7 +214,10 @@ int32_t DeviceAuthAbility::OnRemoteRequest(uint32_t code, MessageParcel &data, M
         LOGE("DeviceAuthAbility [IPC][C->S]: The proxy interface token is invalid!");
         return -1;
     }
-    if (isUnloading_) {
+    LockCriticalMutex();
+    bool isUnloading = isUnloading_;
+    UnlockCriticalMutex();
+    if (isUnloading) {
         LOGW("sa is unloading, need to retry.");
         return HC_ERR_IPC_SA_IS_UNLOADING;
     }
@@ -229,17 +232,23 @@ int32_t DeviceAuthAbility::OnRemoteRequest(uint32_t code, MessageParcel &data, M
 
 void DeviceAuthAbility::OnActive(const SystemAbilityOnDemandReason &activeReason)
 {
-    LOGI("OnActive, activeReason name is %" LOG_PUB "s, isUnloading is %" LOG_PUB "s.",
-        activeReason.GetName().c_str(), isUnloading_ ? "YES" : "NO");
+    LockCriticalMutex();
+    bool isUnloading = isUnloading_;
     isUnloading_ = false;
+    UnlockCriticalMutex();
+    LOGI("OnActive, activeReason name is %" LOG_PUB "s, isUnloading is %" LOG_PUB "s.",
+        activeReason.GetName().c_str(), isUnloading ? "YES" : "NO");
 }
 
 int32_t DeviceAuthAbility::OnIdle(const SystemAbilityOnDemandReason &idleReason)
 {
-    isUnloading_ = GetCriticalCnt() > 0 ? false : true;
+    LockCriticalMutex();
+    isUnloading_ = (GetCriticalCntNoLock() > 0) ? false : true;
+    bool isUnloading = isUnloading_;
+    UnlockCriticalMutex();
     LOGI("OnIdle, idleReason name is %" LOG_PUB "s, isUnloading is %" LOG_PUB "s.",
-        idleReason.GetName().c_str(), isUnloading_ ? "YES" : "NO");
-    if (isUnloading_) {
+        idleReason.GetName().c_str(), isUnloading ? "YES" : "NO");
+    if (isUnloading) {
         return HC_SUCCESS;
     }
     return SA_REFUSE_TO_UNLOAD;

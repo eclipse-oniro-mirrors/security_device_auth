@@ -14,6 +14,8 @@
  */
 
 
+#include <mutex>
+
 #include "critical_handler.h"
 #include "mem_mgr_client.h"
 #include "mem_mgr_proxy.h"
@@ -64,6 +66,22 @@ int32_t GetCriticalCnt(void)
 {
     std::lock_guard<std::mutex> autoLock(g_criticalLock);
     return g_count;
+}
+
+void LockCriticalMutex(void)
+{
+    g_criticalLock.lock();
+}
+
+void UnlockCriticalMutex(void)
+{
+    g_criticalLock.unlock();
+}
+
+int32_t GetCriticalCntNoLock(void)
+{
+    /* Caller must hold g_criticalLock. */
+    return (int32_t)g_count;
 }
 
 void SetStatusIsStopping(bool isStopping)

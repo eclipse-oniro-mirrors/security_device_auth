@@ -31,6 +31,15 @@ int32_t GetCriticalCnt(void)
     return 0;
 }
 
+void LockCriticalMutex(void) {}
+
+void UnlockCriticalMutex(void) {}
+
+int32_t GetCriticalCntNoLock(void)
+{
+    return 0;
+}
+
 void SetStatusIsStopping(bool isStopping)
 {
     (void)isStopping;
