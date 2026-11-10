@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <mutex>
 #include "ipc_adapt.h"
 #include "common_defs.h"
 #include "hc_log.h"
@@ -41,6 +42,7 @@ namespace {
 }
 
 static sptr<StubDevAuthCb> g_sdkCbStub[IPC_CALL_BACK_STUB_NODES] = { nullptr, nullptr, nullptr, nullptr };
+static std::mutex g_sdkCbStubMutex;
 
 typedef struct {
     int32_t callbackId;
@@ -1697,6 +1699,7 @@ void DestroyCallCtx(uintptr_t *callCtx)
 
 void SetCbCtxToDataCtx(uintptr_t callCtx, int32_t cbIdx)
 {
+    std::lock_guard<std::mutex> autoLock(g_sdkCbStubMutex);
     sptr<IRemoteObject> remote = g_sdkCbStub[cbIdx];
     ProxyDevAuthData *dataCache = reinterpret_cast<ProxyDevAuthData *>(callCtx);
     dataCache->SetCallbackStub(remote);
@@ -1907,6 +1910,7 @@ bool IsCallbackMethod(int32_t methodId)
 
 void UnInitProxyAdapt(void)
 {
+    std::lock_guard<std::mutex> autoLock(g_sdkCbStubMutex);
     for (int32_t i = 0; i < IPC_CALL_BACK_STUB_NODES; i++) {
         g_sdkCbStub[i] = nullptr;
     }
