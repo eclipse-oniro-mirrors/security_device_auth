@@ -1214,14 +1214,17 @@ static int32_t GetToken(int32_t osAccountId, AccountToken *token, const char *us
     if (HasAccountPlugin()) {
         return GetTokenFromPlugin(osAccountId, token, userId, deviceId);
     }
+    (void)LockHcMutex(g_accountDbMutex);
     AccountToken *existToken = GetAccountToken(osAccountId, userId, deviceId);
     if (existToken == NULL) {
         LOGE("Token not exist");
+        UnlockHcMutex(g_accountDbMutex);
         return HC_ERROR;
     }
     int32_t ret = GeneratePkInfoFromInfo(&existToken->pkInfo, &token->pkInfo);
     if (ret != HC_SUCCESS) {
         LOGE("Generate pkInfo failed");
+        UnlockHcMutex(g_accountDbMutex);
         return ret;
     }
     GOTO_ERR_AND_SET_RET(memcpy_s(token->pkInfoStr.val, token->pkInfoStr.length,
@@ -1237,6 +1240,7 @@ static int32_t GetToken(int32_t osAccountId, AccountToken *token, const char *us
     ret = HC_SUCCESS;
     LOGI("GetToken successfully!");
 ERR:
+    UnlockHcMutex(g_accountDbMutex);
     return ret;
 }
 
@@ -1350,16 +1354,19 @@ static int32_t AddToken(int32_t osAccountId, int32_t opCode, const CJson *in)
         DestroyAccountToken(token);
         return ret;
     }
+    (void)LockHcMutex(g_accountDbMutex);
     ret = AddTokenInner(osAccountId, token);
     DestroyAccountToken(token);
     if (ret != HC_SUCCESS) {
         LOGE("Failed to add token inner");
+        UnlockHcMutex(g_accountDbMutex);
         return ret;
     }
     ret = SaveOsAccountTokenDb(osAccountId);
     if (ret != HC_SUCCESS) {
         LOGE("Failed to save token to db");
     }
+    UnlockHcMutex(g_accountDbMutex);
     return ret;
 }
 
@@ -1370,13 +1377,16 @@ static int32_t DeleteToken(int32_t osAccountId, const char *userId, const char *
         return HC_ERR_NULL_PTR;
     }
     AccountTokenVec deleteTokens = CreateAccountTokenVec();
+    (void)LockHcMutex(g_accountDbMutex);
     int32_t ret = DeleteTokenInner(osAccountId, userId, deviceId, &deleteTokens);
     if (ret != HC_SUCCESS) {
         LOGE("Failed to delete token inner, account id is: %" LOG_PUB "d", osAccountId);
         DestroyAccountTokenVec(&deleteTokens);
+        UnlockHcMutex(g_accountDbMutex);
         return ret;
     }
     ret = SaveOsAccountTokenDb(osAccountId);
+    UnlockHcMutex(g_accountDbMutex);
     if (ret != HC_SUCCESS) {
         LOGE("Failed to save token to db, account id is: %" LOG_PUB "d", osAccountId);
         ClearAccountTokenVec(&deleteTokens);
@@ -1423,7 +1433,7 @@ void InitTokenManager(void)
             LOGE("Alloc account database mutex failed.");
             return;
         }
-        if (InitHcMutex(g_accountDbMutex, false) != HC_SUCCESS) {
+        if (InitHcMutex(g_accountDbMutex, true) != HC_SUCCESS) {
             LOGE("Init account mutex failed.");
             HcFree(g_accountDbMutex);
             g_accountDbMutex = NULL;
