@@ -81,7 +81,7 @@ void UnlockCriticalMutex(void)
 int32_t GetCriticalCntNoLock(void)
 {
     /* Caller must hold g_criticalLock. */
-    return (int32_t)g_count;
+    return static_cast<int32_t>(g_count);
 }
 
 void SetStatusIsStopping(bool isStopping)
