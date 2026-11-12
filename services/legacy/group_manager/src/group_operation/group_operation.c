@@ -964,12 +964,12 @@ static int32_t RequestAddMemberToGroupInner(int32_t osAccountId, int64_t request
     }
     LOGI("Start to add member to group. [ReqId]: %" LOG_PUB PRId64 ", [OsAccountId]: %" LOG_PUB "d, [AppId]: %"
         LOG_PUB "s", requestId, osAccountId, appId);
-    const DeviceAuthCallback *callback = GetGMCallbackByAppId(appId);
-    if (callback == NULL) {
+    DeviceAuthCallback callback;
+    if (GetGMCallbackCopyByAppId(appId, &callback) != HC_SUCCESS) {
         LOGE("Failed to find callback by appId! [AppId]: %" LOG_PUB "s", appId);
         return HC_ERR_CALLBACK_NOT_FOUND;
     }
-    return StartClientBindSession(osAccountId, requestId, appId, addParams, callback);
+    return StartClientBindSession(osAccountId, requestId, appId, addParams, &callback);
 }
 
 static int32_t RequestAddMemberToGroup(int32_t osAccountId, int64_t requestId, const char *appId, const char *addParams)
@@ -1090,8 +1090,8 @@ static int32_t BuildServerBindContext(int64_t requestId, const char *appId, int3
 static int32_t OpenServerBindSession(int64_t requestId, const CJson *receivedMsg)
 {
     const char *appId = GetAppIdFromReceivedMsg(receivedMsg);
-    const DeviceAuthCallback *callback = GetGMCallbackByAppId(appId);
-    if (callback == NULL) {
+    DeviceAuthCallback callback;
+    if (GetGMCallbackCopyByAppId(appId, &callback) != HC_SUCCESS) {
         LOGE("Failed to find callback by appId! [AppId]: %" LOG_PUB "s", appId);
         return HC_ERR_CALLBACK_NOT_FOUND;
     }
@@ -1108,7 +1108,7 @@ static int32_t OpenServerBindSession(int64_t requestId, const CJson *receivedMsg
         LOGE("Create reqParames from appid failed!");
         return res;
     }
-    char *returnDataStr = ProcessRequestCallback(requestId, opCode, reqParames, callback);
+    char *returnDataStr = ProcessRequestCallback(requestId, opCode, reqParames, &callback);
     FreeJsonString(reqParames);
     if (returnDataStr == NULL) {
         LOGE("The OnRequest callback failed!");
@@ -1132,7 +1132,7 @@ static int32_t OpenServerBindSession(int64_t requestId, const CJson *receivedMsg
         return res;
     }
 #endif
-    SessionInitParams params = { context, *callback };
+    SessionInitParams params = { context, callback };
     res = OpenDevSession(requestId, appId, &params);
     FreeJson(context);
     return res;

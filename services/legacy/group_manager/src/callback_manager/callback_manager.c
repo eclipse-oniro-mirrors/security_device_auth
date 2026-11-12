@@ -166,24 +166,6 @@ char *ProcessRequestCallback(int64_t reqId, int operationCode, const char *reqPa
     return NULL;
 }
 
-const DeviceAuthCallback *GetGMCallbackByAppId(const char *appId)
-{
-    uint32_t index;
-    CallbackEntry *entry = NULL;
-    if (LockHcMutex(g_callbackMutex) != HC_SUCCESS) {
-        LOGE("Failed to lock callback mutex!");
-        return NULL;
-    }
-    FOR_EACH_HC_VECTOR(g_callbackVec, index, entry) {
-        if (IsStrEqual(entry->appId, appId)) {
-            UnlockHcMutex(g_callbackMutex);
-            return entry->callback;
-        }
-    }
-    UnlockHcMutex(g_callbackMutex);
-    return NULL;
-}
-
 int32_t GetGMCallbackCopyByAppId(const char *appId, DeviceAuthCallback *outCallback)
 {
     if ((appId == NULL) || (outCallback == NULL)) {
