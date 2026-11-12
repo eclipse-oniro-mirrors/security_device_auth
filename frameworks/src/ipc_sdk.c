@@ -119,6 +119,10 @@ static void GetIpcReplyByType(const IpcDataInfo *ipcData,
             case PARAM_TYPE_DATA_NUM:
             case PARAM_TYPE_SHARED_KEY_LEN:
             case PARAM_TYPE_RANDOM_LEN:
+                if (cacheLen == NULL || ipcData[i].valSz > *cacheLen) {
+                    LOGE("Invalid cacheLen or valSz exceeds cache capacity!");
+                    break;
+                }
                 eno = memcpy_s(outCache, *cacheLen, ipcData[i].val, ipcData[i].valSz);
                 if (eno != EOK) {
                     break;
