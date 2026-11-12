@@ -146,8 +146,7 @@ void DeinitTlvFixMember(TlvBase *tlv);
 
 #define DECLARE_TLV_PARSE_FUNC(TlvName, TlvParseFunc, TlvGetLenFunc, TlvEncodeFunc) \
 void Init##TlvName(TlvName *tlv, unsigned short checkTag) \
-{ \
-    if (tlv == NULL) { return; } \
+{ if (tlv == NULL) { return; } \
     (void)memset_s(&tlv->base, sizeof(tlv->base), 0, sizeof(tlv->base)); \
     tlv->base.parse = TlvParseFunc; \
     tlv->base.getlen = TlvGetLenFunc; \
