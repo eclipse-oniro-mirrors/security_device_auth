@@ -1359,7 +1359,7 @@ static int32_t DevAuthTestCase054(void)
         (void)ProcessFinishCallback(TEST_REQ_ID, 0, nullptr, nullptr);
         (void)ProcessErrorCallback(TEST_REQ_ID, 0, 0, nullptr, nullptr);
         (void)ProcessRequestCallback(TEST_REQ_ID, 0, nullptr, nullptr);
-        (void)GetGMCallbackByAppId(nullptr);
+        (void)GetGMCallbackCopyByAppId(nullptr, nullptr);
         (void)RegGroupManagerCallback(nullptr, nullptr);
         (void)UnRegGroupManagerCallback(nullptr);
     } while (0);

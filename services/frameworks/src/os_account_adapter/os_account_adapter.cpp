@@ -199,7 +199,9 @@ void NotifySubProfileDeleted(int32_t osAccountId, int32_t subProfileId)
 
 static void SubscribeCommonEvent(void)
 {
+    (void)LockHcMutex(&g_osAccountMutex);
     if (g_isCommonEventSubscribed) {
+        UnlockHcMutex(&g_osAccountMutex);
         return;
     }
     if (g_accountSubscriber == nullptr) {
@@ -229,11 +231,14 @@ static void SubscribeCommonEvent(void)
     } else {
         LOGE("[OsAccountAdapter]: subscribe common event failed!");
     }
+    UnlockHcMutex(&g_osAccountMutex);
 }
 
 static void UnSubscribeCommonEvent(void)
 {
+    (void)LockHcMutex(&g_osAccountMutex);
     if (!g_isCommonEventSubscribed) {
+        UnlockHcMutex(&g_osAccountMutex);
         return;
     }
     if (OHOS::EventFwk::CommonEventManager::UnSubscribeCommonEvent(g_accountSubscriber)) {
@@ -242,6 +247,7 @@ static void UnSubscribeCommonEvent(void)
     } else {
         LOGE("[OsAccountAdapter]: unsubscribe common event failed!");
     }
+    UnlockHcMutex(&g_osAccountMutex);
 }
 
 static void UnSubscribeSystemAbility(void)
@@ -273,26 +279,33 @@ static void UnSubscribeSystemAbility(void)
 
 static void StartNetObserver(void)
 {
+    (void)LockHcMutex(&g_osAccountMutex);
     if (g_isNetObserverSubscribed) {
+        UnlockHcMutex(&g_osAccountMutex);
         return;
     }
     g_observer = new(std::nothrow) NetObserver();
     if (g_observer == nullptr) {
         LOGE("[OsAccountAdapter]: failed to create net observer!");
+        UnlockHcMutex(&g_osAccountMutex);
         return;
     }
     g_observer->StartObserver();
     g_isNetObserverSubscribed = true;
+    UnlockHcMutex(&g_osAccountMutex);
 }
 
 static void StopNetObserver(void)
 {
+    (void)LockHcMutex(&g_osAccountMutex);
     if (!g_isNetObserverSubscribed) {
+        UnlockHcMutex(&g_osAccountMutex);
         return;
     }
     g_observer->StopObserver();
     g_observer = nullptr;
     g_isNetObserverSubscribed = false;
+    UnlockHcMutex(&g_osAccountMutex);
 }
 
 static void NotifySystemAbilityAdded(int32_t systemAbilityId)
@@ -398,11 +411,10 @@ void DestroyOsAccountAdapter(void)
     }
     g_isInitialized = false;
     DESTROY_HC_VECTOR(EventCallbackVec, &g_callbackVec);
-    UnlockHcMutex(&g_osAccountMutex);
-    UnSubscribeSystemAbility();
     UnSubscribeCommonEvent();
     StopNetObserver();
-    DestroyHcMutex(&g_osAccountMutex);
+    UnlockHcMutex(&g_osAccountMutex);
+    UnSubscribeSystemAbility();
 }
 
 bool IsOsAccountUnlocked(int32_t osAccountId)

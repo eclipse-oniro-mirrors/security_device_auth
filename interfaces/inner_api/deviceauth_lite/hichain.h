@@ -169,6 +169,16 @@ enum hc_trust_peer_result {
 
 typedef void *hc_handle;
 
+/*
+ * Thread-safety: a hc_handle is NOT thread-safe. Each handle drives a single
+ * PAKE/STS session whose request/response steps are strictly sequential.
+ * Concurrent calls (e.g. receive_data / start_pake / authenticate_peer) on the
+ * SAME handle from multiple threads corrupt the session state machine --
+ * set_state() is a non-atomic read-modify-write and build_object() is a
+ * check-then-act, neither protected by a lock. Callers must serialize all
+ * access to a given handle on a single thread or via an external lock.
+ */
+
 struct uint8_buff {
     uint8_t *val;
     uint32_t size;

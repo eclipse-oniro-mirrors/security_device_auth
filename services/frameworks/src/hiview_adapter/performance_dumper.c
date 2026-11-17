@@ -549,9 +549,9 @@ void InitPerformanceDumper(void)
     }
     (void)LockHcMutex(g_performDataMutex);
     g_performDataVec = CREATE_HC_VECTOR(PerformDataVec);
+    g_isInit = true;
     UnlockHcMutex(g_performDataMutex);
     DEV_AUTH_REG_PERFORM_DUMP_FUNC(PerformanceDump);
-    g_isInit = true;
 }
 
 void DestroyPerformanceDumper(void)
@@ -559,15 +559,12 @@ void DestroyPerformanceDumper(void)
     if (!g_isInit) {
         return;
     }
-    g_isInit = false;
     (void)LockHcMutex(g_performDataMutex);
+    g_isInit = false;
     g_isPerformDumpEnabled = false;
     ClearPerformDataVec();
     DESTROY_HC_VECTOR(PerformDataVec, &g_performDataVec);
     UnlockHcMutex(g_performDataMutex);
-    DestroyHcMutex(g_performDataMutex);
-    HcFree(g_performDataMutex);
-    g_performDataMutex = NULL;
 }
 
 int64_t GetTotalConsumeTimeByReqId(int64_t reqId)

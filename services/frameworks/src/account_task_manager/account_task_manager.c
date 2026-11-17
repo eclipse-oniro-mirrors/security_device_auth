@@ -40,6 +40,7 @@ static AuthSessionRecordList g_sessionList;
 static bool g_isPluginLoaded = false;
 static bool g_hasAccountAuthPlugin = false;
 static HcMutex g_taskMutex = { 0 };
+static bool g_taskMutexInited = false;
 static bool g_isInit = false;
 static bool g_isInUnloadStatus = false;
 static uint32_t g_loadCount = 0;
@@ -141,10 +142,13 @@ int32_t InitAccountTaskManager(void)
         LOGI("[ACCOUNT_TASK_MGR]: has been initialized.");
         return HC_SUCCESS;
     }
-    int32_t res = InitHcMutex(&g_taskMutex, true);
-    if (res != HC_SUCCESS) {
-        LOGE("[ACCOUNT_TASK_MGR]: init account task mutex failed.");
-        return res;
+    if (!g_taskMutexInited) {
+        int32_t res = InitHcMutex(&g_taskMutex, true);
+        if (res != HC_SUCCESS) {
+            LOGE("[ACCOUNT_TASK_MGR]: init account task mutex failed.");
+            return res;
+        }
+        g_taskMutexInited = true;
     }
     (void)LockHcMutex(&g_taskMutex);
     DEV_AUTH_LOAD_PLUGIN();
@@ -156,8 +160,8 @@ int32_t InitAccountTaskManager(void)
     g_isPluginLoaded = true;
     g_isInUnloadStatus = false;
     g_loadCount = 0;
-    UnlockHcMutex(&g_taskMutex);
     g_isInit = true;
+    UnlockHcMutex(&g_taskMutex);
     return HC_SUCCESS;
 }
 
@@ -167,8 +171,8 @@ void DestroyAccountTaskManager(void)
         LOGI("[ACCOUNT_TASK_MGR]: has not been initialized.");
         return;
     }
-    g_isInit = false;
     (void)LockHcMutex(&g_taskMutex);
+    g_isInit = false;
     g_hasAccountAuthPlugin = false;
 #ifdef DEVAUTH_ENABLE_OS_ACCOUNT_MULTI_PROFILE
     g_hasTrustDatabasePlugin = false;
@@ -178,7 +182,6 @@ void DestroyAccountTaskManager(void)
     g_isInUnloadStatus = false;
     g_loadCount = 0;
     UnlockHcMutex(&g_taskMutex);
-    DestroyHcMutex(&g_taskMutex);
 }
 
 bool HasAccountPlugin(void)

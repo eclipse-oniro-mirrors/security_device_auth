@@ -73,11 +73,11 @@ void SetRegCredChangeListenerFunc(RegCredChangeListenerFunc regCredChangeListene
 
 void RegisterDevAuthCallbackIfNeed(void)
 {
+    std::lock_guard<std::recursive_mutex> autoLock(g_devAuthCallbackMutex);
     if (g_devAuthInitStatus == false) {
         LOGE("device auth not init.");
         return;
     }
-    std::lock_guard<std::recursive_mutex> autoLock(g_devAuthCallbackMutex);
     if (!g_devAuthSaIsActive) {
         LOGE("[SDK]: need to register callback.");
         RegisterDevAuthCallback();
@@ -129,11 +129,13 @@ void UnSubscribeDeviceAuthSa(void)
 
 int32_t InitLoadOnDemand(void)
 {
+    std::lock_guard<std::recursive_mutex> autoLock(g_devAuthCallbackMutex);
     g_devAuthInitStatus = true;
     return HC_SUCCESS;
 }
 
 void DeInitLoadOnDemand(void)
 {
+    std::lock_guard<std::recursive_mutex> autoLock(g_devAuthCallbackMutex);
     g_devAuthInitStatus = false;
 }

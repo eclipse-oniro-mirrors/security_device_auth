@@ -29,6 +29,9 @@ void NotifyProcessIsStop(void);
 void IncreaseCriticalCnt(uint32_t addCnt);
 void DecreaseCriticalCnt(void);
 int32_t GetCriticalCnt(void);
+void LockCriticalMutex(void);
+void UnlockCriticalMutex(void);
+int32_t GetCriticalCntNoLock(void);
 void SetStatusIsStopping(bool isStopping);
 bool CheckIsStopping(void);
 

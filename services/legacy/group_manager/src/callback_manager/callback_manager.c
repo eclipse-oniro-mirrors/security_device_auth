@@ -166,22 +166,33 @@ char *ProcessRequestCallback(int64_t reqId, int operationCode, const char *reqPa
     return NULL;
 }
 
-const DeviceAuthCallback *GetGMCallbackByAppId(const char *appId)
+int32_t GetGMCallbackCopyByAppId(const char *appId, DeviceAuthCallback *outCallback)
 {
+    if ((appId == NULL) || (outCallback == NULL)) {
+        LOGE("Invalid input params!");
+        return HC_ERR_INVALID_PARAMS;
+    }
+    (void)memset_s(outCallback, sizeof(DeviceAuthCallback), 0, sizeof(DeviceAuthCallback));
     uint32_t index;
     CallbackEntry *entry = NULL;
     if (LockHcMutex(g_callbackMutex) != HC_SUCCESS) {
         LOGE("Failed to lock callback mutex!");
-        return NULL;
+        return HC_ERROR;
     }
     FOR_EACH_HC_VECTOR(g_callbackVec, index, entry) {
         if (IsStrEqual(entry->appId, appId)) {
+            if (memcpy_s(outCallback, sizeof(DeviceAuthCallback), entry->callback,
+                sizeof(DeviceAuthCallback)) != EOK) {
+                UnlockHcMutex(g_callbackMutex);
+                LOGE("Failed to copy callback!");
+                return HC_ERR_MEMORY_COPY;
+            }
             UnlockHcMutex(g_callbackMutex);
-            return entry->callback;
+            return HC_SUCCESS;
         }
     }
     UnlockHcMutex(g_callbackMutex);
-    return NULL;
+    return HC_ERR_CALLBACK_NOT_FOUND;
 }
 
 int32_t RegGroupManagerCallback(const char *appId, const DeviceAuthCallback *callback)

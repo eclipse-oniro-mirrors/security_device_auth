@@ -54,6 +54,9 @@ typedef struct {
 static IpcProxyCbInfo g_ipcProxyCbList = { 0 };
 static IpcProxyCbInfo g_ipcListenerCbList = { 0 };
 static HcMutex g_ipcMutex;
+static HcMutex g_devAuthInitMutex;
+static pthread_mutex_t g_devAuthInitMutexGuard = PTHREAD_MUTEX_INITIALIZER;
+static bool g_devAuthInitMutexInited = false;
 static bool g_devAuthServiceStatus = false;
 
 static bool IsStrInvalid(const char *str)
@@ -1357,24 +1360,46 @@ DEVICE_AUTH_API_PUBLIC int32_t CancelAuthRequest(int64_t requestId, const char *
     return ret;
 }
 
+static int32_t EnsureDevAuthInitMutex(void)
+{
+    pthread_mutex_lock(&g_devAuthInitMutexGuard);
+    if (!g_devAuthInitMutexInited) {
+        if (InitHcMutex(&g_devAuthInitMutex, false) != HC_SUCCESS) {
+            pthread_mutex_unlock(&g_devAuthInitMutexGuard);
+            return HC_ERROR;
+        }
+        g_devAuthInitMutexInited = true;
+    }
+    pthread_mutex_unlock(&g_devAuthInitMutexGuard);
+    return HC_SUCCESS;
+}
+
 DEVICE_AUTH_API_PUBLIC int InitDeviceAuthService(void)
 {
+    if (EnsureDevAuthInitMutex() != HC_SUCCESS) {
+        return HC_ERROR;
+    }
+    (void)LockHcMutex(&g_devAuthInitMutex);
     if (g_devAuthServiceStatus == true) {
+        UnlockHcMutex(&g_devAuthInitMutex);
         return HC_SUCCESS;
     }
     int32_t ret = InitHcMutex(&g_ipcMutex, false);
     if (ret != HC_SUCCESS) {
+        UnlockHcMutex(&g_devAuthInitMutex);
         return ret;
     }
     ret = InitLoadOnDemand();
     if (ret != HC_SUCCESS) {
         DestroyHcMutex(&g_ipcMutex);
+        UnlockHcMutex(&g_devAuthInitMutex);
         return ret;
     }
     ret = InitISIpc();
     if (ret != HC_SUCCESS) {
         DeInitLoadOnDemand();
         DestroyHcMutex(&g_ipcMutex);
+        UnlockHcMutex(&g_devAuthInitMutex);
         return ret;
     }
     ret = InitProxyAdapt();
@@ -1382,6 +1407,7 @@ DEVICE_AUTH_API_PUBLIC int InitDeviceAuthService(void)
         DeInitISIpc();
         DeInitLoadOnDemand();
         DestroyHcMutex(&g_ipcMutex);
+        UnlockHcMutex(&g_devAuthInitMutex);
         return ret;
     }
     (void)InitSdkIpcCallBackList();
@@ -1389,11 +1415,13 @@ DEVICE_AUTH_API_PUBLIC int InitDeviceAuthService(void)
     SetRegCallbackFunc(IpcGmRegCallbackInner);
     SetRegDataChangeListenerFunc(IpcGmRegDataChangeListenerInner);
     SubscribeDeviceAuthSa();
+    UnlockHcMutex(&g_devAuthInitMutex);
     return HC_SUCCESS;
 }
 
 DEVICE_AUTH_API_PUBLIC void DestroyDeviceAuthService(void)
 {
+    (void)LockHcMutex(&g_devAuthInitMutex);
     UnSubscribeDeviceAuthSa();
     DeInitSdkIpcCallBackList();
     UnInitProxyAdapt();
@@ -1401,6 +1429,7 @@ DEVICE_AUTH_API_PUBLIC void DestroyDeviceAuthService(void)
     DeInitLoadOnDemand();
     DestroyHcMutex(&g_ipcMutex);
     g_devAuthServiceStatus = false;
+    UnlockHcMutex(&g_devAuthInitMutex);
 }
 
 DEVICE_AUTH_API_PUBLIC const GroupAuthManager *GetGaInstance(void)

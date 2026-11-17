@@ -1369,6 +1369,56 @@ HWTEST_F(CredListenerTest, CredListenerTest002, TestSize.Level0)
     EXPECT_NE(ret, IS_SUCCESS);
 }
 
+// Register a listener, verify OnCredAdd dispatches to it, remove it, verify
+// OnCredAdd no longer dispatches, then re-register and verify dispatch again.
+// Exercises the RemoveCredListener free+pop path and guards against dangling
+// entries / vector corruption that would break re-registration or dispatch.
+HWTEST_F(CredListenerTest, CredListenerTest003, TestSize.Level0)
+{
+    int32_t ret = AddCredListener(TEST_APP_ID, &g_credChangeListener);
+    EXPECT_EQ(ret, IS_SUCCESS);
+    g_credListenerStatus = CRED_LISTENER_INIT;
+    OnCredAdd(TEST_CRED_ID, TEST_CRED_INFO_ID);
+    EXPECT_EQ(g_credListenerStatus, CRED_LISTENER_ON_ADD);
+
+    ret = RemoveCredListener(TEST_APP_ID);
+    EXPECT_EQ(ret, IS_SUCCESS);
+    g_credListenerStatus = CRED_LISTENER_INIT;
+    OnCredAdd(TEST_CRED_ID, TEST_CRED_INFO_ID);
+    EXPECT_EQ(g_credListenerStatus, CRED_LISTENER_INIT);
+
+    ret = AddCredListener(TEST_APP_ID, &g_credChangeListener);
+    EXPECT_EQ(ret, IS_SUCCESS);
+    g_credListenerStatus = CRED_LISTENER_INIT;
+    OnCredAdd(TEST_CRED_ID, TEST_CRED_INFO_ID);
+    EXPECT_EQ(g_credListenerStatus, CRED_LISTENER_ON_ADD);
+    ret = RemoveCredListener(TEST_APP_ID);
+    EXPECT_EQ(ret, IS_SUCCESS);
+}
+
+// Register two listeners, remove the first (index 0) so ParcelEraseBlock must
+// shift the surviving entry down. Verify the remaining listener still receives
+// OnCredAdd. Guards against vector-shift corruption from a mid-vector remove.
+HWTEST_F(CredListenerTest, CredListenerTest004, TestSize.Level0)
+{
+    int32_t ret = AddCredListener(TEST_APP_ID, &g_credChangeListener);
+    EXPECT_EQ(ret, IS_SUCCESS);
+    ret = AddCredListener(TEST_APP_ID1, &g_credChangeListener);
+    EXPECT_EQ(ret, IS_SUCCESS);
+
+    ret = RemoveCredListener(TEST_APP_ID);
+    EXPECT_EQ(ret, IS_SUCCESS);
+    g_credListenerStatus = CRED_LISTENER_INIT;
+    OnCredAdd(TEST_CRED_ID, TEST_CRED_INFO_ID);
+    EXPECT_EQ(g_credListenerStatus, CRED_LISTENER_ON_ADD);
+
+    ret = RemoveCredListener(TEST_APP_ID1);
+    EXPECT_EQ(ret, IS_SUCCESS);
+    g_credListenerStatus = CRED_LISTENER_INIT;
+    OnCredAdd(TEST_CRED_ID, TEST_CRED_INFO_ID);
+    EXPECT_EQ(g_credListenerStatus, CRED_LISTENER_INIT);
+}
+
 class IdentityOperationTest : public testing::Test {
 public:
     static void SetUpTestCase();

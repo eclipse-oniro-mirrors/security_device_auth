@@ -267,16 +267,19 @@ int32_t RemoveCredListener(const char *appId)
     }
     uint32_t index;
     CredListenerEntry *entry = NULL;
+    (void)LockHcMutex(g_credListenerMutex);
     FOR_EACH_HC_VECTOR(g_credListenerVec, index, entry) {
         if (entry != NULL && IsStrEqual(entry->appId, appId)) {
             HcFree(entry->appId);
             HcFree(entry->listener);
             CredListenerEntry tempEntry;
             HC_VECTOR_POPELEMENT(&g_credListenerVec, &tempEntry, index);
+            UnlockHcMutex(g_credListenerMutex);
             LOGI("[CredListener]: Successfully removed a cred listener. [AppId]: %" LOG_PUB "s", appId);
             return IS_SUCCESS;
         }
     }
+    UnlockHcMutex(g_credListenerMutex);
     LOGI("[CredListener]: The cred listener does not exist! [AppId]: %" LOG_PUB "s", appId);
     return IS_SUCCESS;
 }
