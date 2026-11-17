@@ -116,12 +116,14 @@ int32_t ParseTlv##TlvName(TlvBase *tlv, HcParcel *parcel, HcBool strict) \
 \
 int32_t GetLenTlv##TlvName(TlvBase *tlv) \
 { \
+    if (tlv == NULL) { return TLV_FAIL; } \
     TlvName *realTlv = (TlvName *)(tlv); \
     return (int32_t)sizeof(realTlv->data); \
 } \
 \
 int32_t EncodeTlv##TlvName(TlvBase *tlv, HcParcel *parcel) \
 { \
+    if (tlv == NULL || parcel == NULL) { return TLV_FAIL; } \
     HcBool writeRet = HC_FALSE; \
     TlvName *realTlv = (TlvName *)(tlv); \
     if (Revert) \
@@ -144,7 +146,7 @@ void DeinitTlvFixMember(TlvBase *tlv);
 
 #define DECLARE_TLV_PARSE_FUNC(TlvName, TlvParseFunc, TlvGetLenFunc, TlvEncodeFunc) \
 void Init##TlvName(TlvName *tlv, unsigned short checkTag) \
-{ \
+{ if (tlv == NULL) { return; } \
     (void)memset_s(&tlv->base, sizeof(tlv->base), 0, sizeof(tlv->base)); \
     tlv->base.parse = TlvParseFunc; \
     tlv->base.getlen = TlvGetLenFunc; \

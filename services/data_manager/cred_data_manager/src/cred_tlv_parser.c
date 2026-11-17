@@ -20,6 +20,9 @@
 
 HcBool ParseCredTlvHead(CredTlvBase *tlv, HcParcel *parcel)
 {
+    if (tlv == NULL || parcel == NULL) {
+        return HC_FALSE;
+    }
 #ifdef IS_BIG_ENDIAN
     if (!ParcelReadUint16Revert(parcel, &tlv->tag)) {
         return HC_FALSE;
@@ -50,6 +53,9 @@ HcBool ParseCredTlvHead(CredTlvBase *tlv, HcParcel *parcel)
 
 int64_t ParseCredTlvNode(CredTlvBase *tlv, HcParcel *parcel, HcBool strict)
 {
+    if (tlv == NULL || parcel == NULL) {
+        return CRED_TLV_FAIL;
+    }
     if (!ParseCredTlvHead(tlv, parcel)) {
         return CRED_TLV_FAIL;
     } else {
@@ -68,6 +74,9 @@ int64_t ParseCredTlvNode(CredTlvBase *tlv, HcParcel *parcel, HcBool strict)
 
 int64_t GetlenCredTlvNode(CredTlvBase *tlv)
 {
+    if (tlv == NULL) {
+        return CRED_TLV_FAIL;
+    }
     int64_t bodyLen = tlv->getlen(tlv);
     if (bodyLen < 0 || bodyLen > MAX_CRED_TLV_LENGTH) {
         return CRED_TLV_FAIL;
@@ -192,6 +201,9 @@ static int64_t ParseAndSkipTlvUnknownNode(HcParcel *parcel)
 
 int64_t ParseCredTlvStruct(CredTlvBase *tlv, HcParcel *parcel, HcBool strict)
 {
+    if (tlv == NULL || parcel == NULL) {
+        return CRED_TLV_FAIL;
+    }
     int64_t childTotalLength = 0;
     do {
         uint16_t tag = 0;
@@ -331,6 +343,9 @@ HcBool EncodeCredTlvMessage(CredTlvBase *msg, HcParcel *parcel)
 
 int64_t ParseCredTlvBuffer(CredTlvBase *tlv, HcParcel *parcel, HcBool strict)
 {
+    if (tlv == NULL || parcel == NULL) {
+        return CRED_TLV_FAIL;
+    }
     (void)strict;
     CredTlvBuffer *realTlv = (CredTlvBuffer *)(tlv);
     if (tlv->length == 0 || ParcelReadParcel(parcel, &realTlv->data, tlv->length, HC_FALSE)) {
@@ -342,6 +357,9 @@ int64_t ParseCredTlvBuffer(CredTlvBase *tlv, HcParcel *parcel, HcBool strict)
 
 int64_t GetlenCredTlvBuffer(CredTlvBase *tlv)
 {
+    if (tlv == NULL) {
+        return CRED_TLV_FAIL;
+    }
     CredTlvBuffer *realTlv = (CredTlvBuffer *)(tlv);
     return (int64_t)GetParcelDataSize(&realTlv->data);
 }
@@ -379,6 +397,9 @@ void InitCredTlvBuffer(CredTlvBuffer *tlv, unsigned short checkTag)
 
 int64_t ParseCredTlvString(CredTlvBase *tlv, HcParcel *parcel, HcBool strict)
 {
+    if (tlv == NULL || parcel == NULL) {
+        return CRED_TLV_FAIL;
+    }
     (void)strict;
     CredTlvString *realTlv = (CredTlvString *)(tlv);
     ClearParcel(&realTlv->data.parcel);
@@ -391,6 +412,9 @@ int64_t ParseCredTlvString(CredTlvBase *tlv, HcParcel *parcel, HcBool strict)
 
 int64_t GetlenCredTlvString(CredTlvBase *tlv)
 {
+    if (tlv == NULL) {
+        return CRED_TLV_FAIL;
+    }
     CredTlvString *realTlv = (CredTlvString *)(tlv);
     return (int64_t)GetParcelDataSize(&realTlv->data.parcel);
 }
@@ -412,11 +436,17 @@ int64_t EncodeCredTlvString(CredTlvBase *tlv, HcParcel *parcel)
 
 void DeinitCredTlvString(CredTlvBase *tlv)
 {
+    if (tlv == NULL) {
+        return;
+    }
     DeleteString(&((CredTlvString*)tlv)->data);
 }
 
 void InitCredTlvString(CredTlvString *tlv, unsigned short checkTag)
 {
+    if (tlv == NULL) {
+        return;
+    }
     (void)memset_s(&tlv->base, sizeof(tlv->base), 0, sizeof(tlv->base));
     tlv->base.parse = ParseCredTlvString;
     tlv->base.getlen = GetlenCredTlvString;

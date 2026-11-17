@@ -345,12 +345,17 @@ void ResetRemoteObject(int32_t idx)
 
 void ActCallback(int32_t objIdx, int32_t callbackId, IpcIo *dataParcel, IpcIo *reply)
 {
-    if ((objIdx < 0) || (objIdx >= MAX_CBSTUB_SIZE) || (!g_cbStub[objIdx].inUse)) {
+    if ((objIdx < 0) || (objIdx >= MAX_CBSTUB_SIZE)) {
         LOGW("nothing to do, callback id %" LOG_PUB "d, remote object id %" LOG_PUB "d", callbackId, objIdx);
         return;
     }
 
     LockCbStubTable();
+    if (!g_cbStub[objIdx].inUse) {
+        UnLockCbStubTable();
+        LOGW("nothing to do, callback id %" LOG_PUB "d, remote object id %" LOG_PUB "d", callbackId, objIdx);
+        return;
+    }
     CbProxySendRequest(g_cbStub[objIdx].cbStub, callbackId, dataParcel, reply);
     UnLockCbStubTable();
     return;
