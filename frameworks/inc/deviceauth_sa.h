@@ -53,7 +53,6 @@ protected:
 
 private:
     DeviceAuthAbility();
-    bool isUnloading_{false};
 };
 
 } // namespace OHOS
