@@ -649,22 +649,22 @@ static bool SaveParcelToFile(const char *filePath, HcParcel *parcel, int32_t osA
     return true;
 }
 
-static void EnsureCredFileEncState(const char *filePath, int32_t osAccountId)
+static int32_t EnsureCredFileEncState(const char *filePath, int32_t osAccountId)
 {
     if (CredFileEncKeyExist(osAccountId)) {
-        return;
+        return IS_ERR_HUKS_KEY_ALREADY_EXIST;
     }
     // first load: establish per-user key unconditionally so first save is encrypted
     if (EnsureCredFileEncKeyExist(osAccountId) != IS_SUCCESS) {
         LOGE("[CRED#DB]: upgrade aborted, key gen failed! [Id]: %" LOG_PUB "d", osAccountId);
-        return;
+        return IS_ERR_HUKS_GENERATE_KEY_FAILED;
     }
     // if a legacy plaintext file exists, encrypt-replace it so decrypt-read works
     uint8_t *fileData = NULL;
     int fileLen = 0;
     if (!ReadCredFileRaw(filePath, &fileData, &fileLen)) {
         LOGI("[CRED#DB]: no legacy file to upgrade, key established. [Id]: %" LOG_PUB "d", osAccountId);
-        return;
+        return IS_ERR_LOCAL_CRED_NOT_EXIST;
     }
     HcParcel parcel = CreateParcel(0, 0);
     bool ok = ParcelWrite(&parcel, fileData, fileLen);
@@ -672,17 +672,19 @@ static void EnsureCredFileEncState(const char *filePath, int32_t osAccountId)
     if (!ok) {
         LOGE("[CRED#DB]: upgrade aborted, parcel write failed! [Id]: %" LOG_PUB "d", osAccountId);
         DeleteParcel(&parcel);
-        return;
+        return IS_ERR_ALLOC_MEMORY;
     }
+    int32_t ret = HC_ERROR;
     if (!SaveParcelToFile(filePath, &parcel, osAccountId, true)) {
         LOGW("[CRED#DB]: upgrade write failed, rollback key! [Id]: %" LOG_PUB "d", osAccountId);
-        DEV_AUTH_REPORT_FAULT_EVENT_WITH_ERR_CODE(CRED_FILE_UPGRADE_EVENT,
-            PROCESS_CRED_FILE_UPGRADE, IS_ERR_FILE_IO);
         DeleteCredFileEncKey(osAccountId);
+        ret = IS_ERR_FILE_IO;
     } else {
         LOGI("[CRED#DB]: cred file upgrade success. [Id]: %" LOG_PUB "d", osAccountId);
+        ret = IS_SUCCESS;
     }
     DeleteParcel(&parcel);
+    return ret;
 }
 
 static bool ReadCredFileToParcel(const char *filePath, int32_t osAccountId, HcParcel *parcel)
@@ -717,7 +719,12 @@ static void LoadOsAccountCredDb(int32_t osAccountId)
         return;
     }
     HcParcel parcel = CreateParcel(0, 0);
-    EnsureCredFileEncState(filePath, osAccountId);
+    int32_t ret = EnsureCredFileEncState(filePath, osAccountId);
+    if (ret != IS_ERR_HUKS_KEY_ALREADY_EXIST) {
+        DEV_AUTH_REPORT_FAULT_EVENT_WITH_ERR_CODE(CRED_FILE_UPGRADE_EVENT,
+            PROCESS_CRED_FILE_UPGRADE, ret);
+    }
+    (void)ret;
     if (!ReadCredFileToParcel(filePath, osAccountId, &parcel)) {
         DeleteParcel(&parcel);
         return;

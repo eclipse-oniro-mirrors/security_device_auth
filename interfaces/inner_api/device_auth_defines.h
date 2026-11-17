@@ -159,6 +159,7 @@ enum {
 
     IS_SUCCESS = 0x00000000,                                              // 0
     /* IS interface error */
+    IS_ERR_HUKS_KEY_ALREADY_EXIST = 0x00010000,                          // 65536
     IS_ERR_HUKS_GENERATE_KEY_FAILED = 0x00010001,                         // 65537
     IS_ERR_HUKS_IMPORT_KEY_FAILED = 0x00010002,                           // 65538
     IS_ERR_HUKS_SHA256_FAILED = 0x00010003,                               // 65539
