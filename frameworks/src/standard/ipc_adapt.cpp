@@ -1918,15 +1918,20 @@ void UnInitProxyAdapt(void)
 
 int32_t InitProxyAdapt(void)
 {
-    for (int32_t i = 0; i < IPC_CALL_BACK_STUB_NODES; i++) {
-        g_sdkCbStub[i] = new(std::nothrow) StubDevAuthCb;
-    }
-    for (int32_t i = 0; i < IPC_CALL_BACK_STUB_NODES; i++) {
-        if (!g_sdkCbStub[i]) {
-            LOGE("alloc callback stub object failed");
-            UnInitProxyAdapt();
-            return HC_ERR_ALLOC_MEMORY;
+    bool allocFailed = false;
+    {
+        std::lock_guard<std::mutex> autoLock(g_sdkCbStubMutex);
+        for (int32_t i = 0; i < IPC_CALL_BACK_STUB_NODES; i++) {
+            g_sdkCbStub[i] = new(std::nothrow) StubDevAuthCb;
+            if (!g_sdkCbStub[i]) {
+                allocFailed = true;
+            }
         }
+    }
+    if (allocFailed) {
+        LOGE("alloc callback stub object failed");
+        UnInitProxyAdapt();
+        return HC_ERR_ALLOC_MEMORY;
     }
     return HC_SUCCESS;
 }
