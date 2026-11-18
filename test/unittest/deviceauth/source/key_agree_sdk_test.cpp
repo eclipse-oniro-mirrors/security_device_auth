@@ -367,10 +367,7 @@ HWTEST_F(KeyAgreeGenerateNextMessageTest, KeyAgreeGenerateNextMessageTest002, Te
     EXPECT_EQ(res, KEYAGREE_SUCCESS);
 
     res = KeyAgreeIsFinish(g_session);
-    EXPECT_EQ(res, KEYAGREE_SUCCESS);
-
-    res = KeyAgreeGetResult(g_session, &g_sessionKey);
-    EXPECT_EQ(res, KEYAGREE_SUCCESS);
+    EXPECT_NE(res, KEYAGREE_SUCCESS);
 
     res = KeyAgreeGenerateNextMessage(g_session_s, &g_messageToTransmit3, &g_messageToTransmit4);
     EXPECT_EQ(res, KEYAGREE_SUCCESS);
@@ -379,6 +376,15 @@ HWTEST_F(KeyAgreeGenerateNextMessageTest, KeyAgreeGenerateNextMessageTest002, Te
     EXPECT_EQ(res, KEYAGREE_SUCCESS);
 
     res = KeyAgreeGetResult(g_session_s, &g_sessionKey_s);
+    EXPECT_EQ(res, KEYAGREE_SUCCESS);
+
+    res = KeyAgreeGenerateNextMessage(g_session, &g_messageToTransmit4, &g_messageToTransmit5);
+    EXPECT_EQ(res, KEYAGREE_SUCCESS);
+
+    res = KeyAgreeIsFinish(g_session);
+    EXPECT_EQ(res, KEYAGREE_SUCCESS);
+
+    res = KeyAgreeGetResult(g_session, &g_sessionKey);
     EXPECT_EQ(res, KEYAGREE_SUCCESS);
 
     EXPECT_EQ(*(g_sessionKey.data), *(g_sessionKey_s.data));
@@ -417,10 +423,7 @@ HWTEST_F(KeyAgreeGenerateNextMessageTest, KeyAgreeGenerateNextMessageTest003, Te
     EXPECT_EQ(res, KEYAGREE_SUCCESS);
 
     res = KeyAgreeIsFinish(g_session);
-    EXPECT_EQ(res, KEYAGREE_SUCCESS);
-
-    res = KeyAgreeGetResult(g_session, &g_sessionKey);
-    EXPECT_EQ(res, KEYAGREE_SUCCESS);
+    EXPECT_NE(res, KEYAGREE_SUCCESS);
 
     res = KeyAgreeGenerateNextMessage(g_session_s, &g_messageToTransmit3, &g_messageToTransmit4);
     EXPECT_EQ(res, KEYAGREE_SUCCESS);
@@ -429,6 +432,15 @@ HWTEST_F(KeyAgreeGenerateNextMessageTest, KeyAgreeGenerateNextMessageTest003, Te
     EXPECT_EQ(res, KEYAGREE_SUCCESS);
 
     res = KeyAgreeGetResult(g_session_s, &g_sessionKey_s);
+    EXPECT_EQ(res, KEYAGREE_SUCCESS);
+
+    res = KeyAgreeGenerateNextMessage(g_session, &g_messageToTransmit4, &g_messageToTransmit5);
+    EXPECT_EQ(res, KEYAGREE_SUCCESS);
+
+    res = KeyAgreeIsFinish(g_session);
+    EXPECT_EQ(res, KEYAGREE_SUCCESS);
+
+    res = KeyAgreeGetResult(g_session, &g_sessionKey);
     EXPECT_EQ(res, KEYAGREE_SUCCESS);
 
     EXPECT_EQ(*(g_sessionKey.data), *(g_sessionKey_s.data));
@@ -467,10 +479,7 @@ HWTEST_F(KeyAgreeGenerateNextMessageTest, KeyAgreeGenerateNextMessageTest004, Te
     EXPECT_EQ(res, KEYAGREE_SUCCESS);
 
     res = KeyAgreeIsFinish(g_session);
-    EXPECT_EQ(res, KEYAGREE_SUCCESS);
-
-    res = KeyAgreeGetResult(g_session, &g_sessionKey);
-    EXPECT_EQ(res, KEYAGREE_SUCCESS);
+    EXPECT_NE(res, KEYAGREE_SUCCESS);
 
     res = KeyAgreeGenerateNextMessage(g_session_s, &g_messageToTransmit3, &g_messageToTransmit4);
     EXPECT_EQ(res, KEYAGREE_SUCCESS);
@@ -479,6 +488,15 @@ HWTEST_F(KeyAgreeGenerateNextMessageTest, KeyAgreeGenerateNextMessageTest004, Te
     EXPECT_EQ(res, KEYAGREE_SUCCESS);
 
     res = KeyAgreeGetResult(g_session_s, &g_sessionKey_s);
+    EXPECT_EQ(res, KEYAGREE_SUCCESS);
+
+    res = KeyAgreeGenerateNextMessage(g_session, &g_messageToTransmit4, &g_messageToTransmit5);
+    EXPECT_EQ(res, KEYAGREE_SUCCESS);
+
+    res = KeyAgreeIsFinish(g_session);
+    EXPECT_EQ(res, KEYAGREE_SUCCESS);
+
+    res = KeyAgreeGetResult(g_session, &g_sessionKey);
     EXPECT_EQ(res, KEYAGREE_SUCCESS);
 
     EXPECT_EQ(*(g_sessionKey.data), *(g_sessionKey_s.data));
@@ -518,10 +536,7 @@ HWTEST_F(KeyAgreeGenerateNextMessageTest, KeyAgreeGenerateNextMessageTest005, Te
     EXPECT_EQ(res, KEYAGREE_SUCCESS);
 
     res = KeyAgreeIsFinish(g_session);
-    EXPECT_EQ(res, KEYAGREE_SUCCESS);
-
-    res = KeyAgreeGetResult(g_session, &g_sessionKey);
-    EXPECT_EQ(res, KEYAGREE_SUCCESS);
+    EXPECT_NE(res, KEYAGREE_SUCCESS);
 
     res = KeyAgreeGenerateNextMessage(g_session_s, &g_messageToTransmit3, &g_messageToTransmit4);
     EXPECT_EQ(res, KEYAGREE_SUCCESS);
@@ -530,6 +545,15 @@ HWTEST_F(KeyAgreeGenerateNextMessageTest, KeyAgreeGenerateNextMessageTest005, Te
     EXPECT_EQ(res, KEYAGREE_SUCCESS);
 
     res = KeyAgreeGetResult(g_session_s, &g_sessionKey_s);
+    EXPECT_EQ(res, KEYAGREE_SUCCESS);
+
+    res = KeyAgreeGenerateNextMessage(g_session, &g_messageToTransmit4, &g_messageToTransmit5);
+    EXPECT_EQ(res, KEYAGREE_SUCCESS);
+
+    res = KeyAgreeIsFinish(g_session);
+    EXPECT_EQ(res, KEYAGREE_SUCCESS);
+
+    res = KeyAgreeGetResult(g_session, &g_sessionKey);
     EXPECT_EQ(res, KEYAGREE_SUCCESS);
 
     EXPECT_EQ(*(g_sessionKey.data), *(g_sessionKey_s.data));
@@ -559,7 +583,7 @@ HWTEST_F(KeyAgreeGenerateNextMessageTest, KeyAgreeGenerateNextMessageTest006, Te
     EXPECT_NE(res, KEYAGREE_SUCCESS);
 
     res = KeyAgreeGenerateNextMessage(g_session_s, &g_messageToTransmit1, &g_messageToTransmit2);
-    EXPECT_NE(res, KEYAGREE_SUCCESS);
+    EXPECT_EQ(res, KEYAGREE_SUCCESS);
 
     res = KeyAgreeIsFinish(g_session_s);
     EXPECT_NE(res, KEYAGREE_SUCCESS);

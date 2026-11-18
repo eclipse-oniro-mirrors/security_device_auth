@@ -44,7 +44,7 @@ const static KeyAgreeProtocol g_keyAgreeProtocol[] = {
     KEYAGREE_PROTOCOL_DL_SPEKE_256
 };
 
-VersionStruct g_defaultVersion = { 1, 0, 0 };
+static VersionStruct g_defaultVersion = { 1, 0, 0 };
 
 static int32_t GetIdPeer(const CJson *in, const char *peerIdKey, const Uint8Buff *authIdSelf, Uint8Buff *authIdPeer)
 {
@@ -188,7 +188,7 @@ void GetMaxVersion(uint64_t algInProtocol, VersionStruct *version)
     version->third = 0;
 }
 
-int32_t AddVersionToJson(CJson *jsonObj, const VersionStruct *maxVer)
+static int32_t AddVersionToJson(CJson *jsonObj, const VersionStruct *maxVer)
 {
     CHECK_PTR_RETURN_ERROR_CODE(jsonObj, "jsonObj");
     CHECK_PTR_RETURN_ERROR_CODE(maxVer, "maxVer");
@@ -218,7 +218,7 @@ int32_t AddVersionToJson(CJson *jsonObj, const VersionStruct *maxVer)
     return HC_SUCCESS;
 }
 
-int32_t GetVersionFromJson(const CJson* jsonObj, VersionStruct *maxVer)
+static int32_t GetVersionFromJson(const CJson* jsonObj, VersionStruct *maxVer)
 {
     CHECK_PTR_RETURN_ERROR_CODE(jsonObj, "jsonObj");
     CHECK_PTR_RETURN_ERROR_CODE(maxVer, "maxVer");
@@ -234,7 +234,7 @@ int32_t GetVersionFromJson(const CJson* jsonObj, VersionStruct *maxVer)
     return HC_SUCCESS;
 }
 
-int32_t NegotiateVersion(VersionStruct *curVersionPeer, VersionStruct *curVersionSelf)
+static int32_t NegotiateVersion(VersionStruct *curVersionPeer, VersionStruct *curVersionSelf)
 {
     if (IsVersionEqual(curVersionPeer, &g_defaultVersion)) {
         curVersionSelf->first = g_defaultVersion.first;
@@ -257,7 +257,7 @@ void InitVersionInfo(VersionInfo *versionInfo)
     versionInfo->versionStatus = INITIAL;
 }
 
-int32_t GetAuthIdPeerFromPayload(const CJson *in, const Uint8Buff *authIdSelf, Uint8Buff *authIdPeer)
+static int32_t GetAuthIdPeerFromPayload(const CJson *in, const Uint8Buff *authIdSelf, Uint8Buff *authIdPeer)
 {
     const CJson *payload = GetObjFromJson(in, FIELD_SDK_PAYLOAD);
     if (payload == NULL) {
@@ -967,5 +967,6 @@ SpekeSession *CreateSpekeSession(int32_t osAccountId)
     spekeSession->protocol = KEYAGREE_PROTOCOL_ANY;
     spekeSession->isFinish = false;
     spekeSession->step = STEP_INIT;
+    spekeSession->refCnt = 1;
     return spekeSession;
 }

@@ -159,7 +159,7 @@ KeyAgreeResult KeyAgreeInitSession(int32_t osAccountId, KeyAgreeSession *session
     }
     if (spekeSession->checkAndInitProtocol(spekeSession, protocol) != HC_SUCCESS) {
         LOGE("This protocol is not supported!");
-        DestroySpekeSession(spekeSession);
+        ReleaseSpekeSessionRef(spekeSession);
         return KEYAGREE_INIT_NOT_SUPPORTED;
     }
     spekeSession->sessionId = session->sessionId;
@@ -169,7 +169,7 @@ KeyAgreeResult KeyAgreeInitSession(int32_t osAccountId, KeyAgreeSession *session
         spekeSession->versionInfo.versionStatus = VERSION_DECIDED;
         if (spekeSession->initSpekeSession(spekeSession, protocol) != HC_SUCCESS) {
             LOGE("Init protocol session fail!");
-            DestroySpekeSession(spekeSession);
+            ReleaseSpekeSessionRef(spekeSession);
             return KEYAGREE_INIT_INIT_SESSION_FAIL;
         }
     } else {
@@ -181,7 +181,7 @@ KeyAgreeResult KeyAgreeInitSession(int32_t osAccountId, KeyAgreeSession *session
     }
     if (GetManagerInstance()->addSession(session, spekeSession) != HC_SUCCESS) {
         LOGE("Add session fail!");
-        DestroySpekeSession(spekeSession);
+        ReleaseSpekeSessionRef(spekeSession);
         return KEYAGREE_INIT_ADD_SESSION_FAIL;
     }
     LOGI("Init keyAgree session successfully!");
@@ -206,12 +206,39 @@ KeyAgreeResult KeyAgreeStartSession(KeyAgreeSession *session, const KeyAgreeBlob
         return KEYAGREE_START_GET_SESSION_FAIL;
     }
     int32_t res = InitKeyAgreeStartSessionParams(spekeSession, sharedSecret, deviceId, extras);
+    ReleaseSpekeSessionRef(spekeSession);
     if (res != HC_SUCCESS) {
         LOGE("Init params fail!");
         return res;
     }
     LOGI("KeyAgree start successfully!");
     return res;
+}
+
+static KeyAgreeResult ProcessKeyAgreeMessage(SpekeSession *spekeSession, const KeyAgreeBlob *messageReceived,
+    KeyAgreeBlob *messageToTransmit)
+{
+    if ((messageReceived == NULL) && (spekeSession->step != STEP_INIT)) {
+        LOGE("This is not first step, messageReceived is null!");
+        return KEYAGREE_PROCESS_BAD_PARAMS;
+    }
+    if (spekeSession->versionInfo.versionStatus != VERSION_DECIDED) {
+        LOGI("Protocol is not decided, need protocol agree!");
+        if (spekeSession->processProtocolAgree(spekeSession, messageReceived, messageToTransmit) != HC_SUCCESS) {
+            LOGE("Protocol agree fail!");
+            BuildErrorMessage(KEYAGREE_FAIL, messageToTransmit);
+            return KEYAGREE_PROCESS_PROTOCOL_AGREE_FAIL;
+        }
+    } else {
+        LOGI("Protocol decided, process key agree!");
+        if (spekeSession->processSession(spekeSession, messageReceived, messageToTransmit) != HC_SUCCESS) {
+            LOGE("Protocol agree fail!");
+            BuildErrorMessage(KEYAGREE_FAIL, messageToTransmit);
+            return KEYAGREE_PROCESS_PROTOCOL_SESSION_FAIL;
+        }
+    }
+    LOGI("KeyAgree generate next message successfully!");
+    return KEYAGREE_SUCCESS;
 }
 
 KeyAgreeResult KeyAgreeGenerateNextMessage(KeyAgreeSession *session, const KeyAgreeBlob *messageReceived,
@@ -240,27 +267,9 @@ KeyAgreeResult KeyAgreeGenerateNextMessage(KeyAgreeSession *session, const KeyAg
         LOGE("GetSession fail!");
         return KEYAGREE_PROCESS_GET_SESSION_FAIL;
     }
-    if ((messageReceived == NULL) && (spekeSession->step != STEP_INIT)) {
-        LOGE("This is not first step, messageReceived is null!");
-        return KEYAGREE_PROCESS_BAD_PARAMS;
-    }
-    if (spekeSession->versionInfo.versionStatus != VERSION_DECIDED) {
-        LOGI("Protocol is not decided, need protocol agree!");
-        if (spekeSession->processProtocolAgree(spekeSession, messageReceived, messageToTransmit) != HC_SUCCESS) {
-            LOGE("Protocol agree fail!");
-            BuildErrorMessage(KEYAGREE_FAIL, messageToTransmit);
-            return KEYAGREE_PROCESS_PROTOCOL_AGREE_FAIL;
-        }
-    } else {
-        LOGI("Protocol decided, process key agree!");
-        if (spekeSession->processSession(spekeSession, messageReceived, messageToTransmit) != HC_SUCCESS) {
-            LOGE("Protocol agree fail!");
-            BuildErrorMessage(KEYAGREE_FAIL, messageToTransmit);
-            return KEYAGREE_PROCESS_PROTOCOL_SESSION_FAIL;
-        }
-    }
-    LOGI("KeyAgree generate next message successfully!");
-    return KEYAGREE_SUCCESS;
+    KeyAgreeResult res = ProcessKeyAgreeMessage(spekeSession, messageReceived, messageToTransmit);
+    ReleaseSpekeSessionRef(spekeSession);
+    return res;
 }
 
 KeyAgreeResult KeyAgreeIsFinish(KeyAgreeSession *session)
@@ -280,7 +289,9 @@ KeyAgreeResult KeyAgreeIsFinish(KeyAgreeSession *session)
         LOGE("GetSession fail!");
         return KEYAGREE_IS_FINSIH_GET_SESSION_FAIL;
     }
-    if (!spekeSession->isFinish) {
+    bool isFinish = spekeSession->isFinish;
+    ReleaseSpekeSessionRef(spekeSession);
+    if (!isFinish) {
         LOGE("Keg agree is not finish!");
         return KEYAGREE_IS_FINSIH_NOT_FINSIH;
     }
@@ -311,14 +322,17 @@ KeyAgreeResult KeyAgreeGetResult(KeyAgreeSession *session, KeyAgreeBlob *session
     }
     if (!spekeSession->isFinish) {
         LOGE("Keg agree is not finish, sessionKey is not generate!");
+        ReleaseSpekeSessionRef(spekeSession);
         return KEYAGREE_GET_RESULT_NOT_FINSIH;
     }
     if (memcpy_s(sessionKey->data, spekeSession->baseParam.sessionKey.length + 1,
         spekeSession->baseParam.sessionKey.val, spekeSession->baseParam.sessionKey.length + 1) != EOK) {
         LOGE("Memcpy for seesionKey failed.");
+        ReleaseSpekeSessionRef(spekeSession);
         return KEYAGREE_GET_RESULT_MEMCPY_FAILED;
     }
     sessionKey->length = spekeSession->baseParam.sessionKey.length;
+    ReleaseSpekeSessionRef(spekeSession);
     LOGI("Keg agree is finish, return seesionKey.");
     return KEYAGREE_SUCCESS;
 }
@@ -340,9 +354,10 @@ void KeyAgreeFreeSession(KeyAgreeSession *session)
         LOGE("GetSession fail!");
         return;
     }
-    if (sessionManager == NULL || sessionManager->deleteSession(session) != HC_SUCCESS) {
+    if (sessionManager->deleteSession(session) != HC_SUCCESS) {
+        /* Node may have been deleted concurrently: drop only our own reference;
+         * the vector keeps its reference while the node is still present. */
         LOGE("Delete session fail!");
-        return;
     }
-    DestroySpekeSession(spekeSession);
+    ReleaseSpekeSessionRef(spekeSession);
 }

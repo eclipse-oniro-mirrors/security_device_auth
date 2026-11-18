@@ -31,13 +31,19 @@ int32_t GetCriticalCnt(void)
     return 0;
 }
 
-void LockCriticalMutex(void) {}
-
-void UnlockCriticalMutex(void) {}
-
-int32_t GetCriticalCntNoLock(void)
+bool CheckSaIsUnloading(void)
 {
-    return 0;
+    return false;
+}
+
+bool ClearSaUnloadingFlag(void)
+{
+    return false;
+}
+
+bool DecideSaUnloadByCriticalCnt(void)
+{
+    return false;
 }
 
 void SetStatusIsStopping(bool isStopping)

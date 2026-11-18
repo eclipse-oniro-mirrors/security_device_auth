@@ -24,6 +24,7 @@
 
 static uint32_t g_count = 0;
 static bool g_saIsStopping = false;
+static bool g_saIsUnloading = false;
 static std::mutex g_criticalLock;
 
 void NotifyProcessIsActive(void)
@@ -68,20 +69,25 @@ int32_t GetCriticalCnt(void)
     return g_count;
 }
 
-void LockCriticalMutex(void)
+bool CheckSaIsUnloading(void)
 {
-    g_criticalLock.lock();
+    std::lock_guard<std::mutex> autoLock(g_criticalLock);
+    return g_saIsUnloading;
 }
 
-void UnlockCriticalMutex(void)
+bool ClearSaUnloadingFlag(void)
 {
-    g_criticalLock.unlock();
+    std::lock_guard<std::mutex> autoLock(g_criticalLock);
+    bool isUnloading = g_saIsUnloading;
+    g_saIsUnloading = false;
+    return isUnloading;
 }
 
-int32_t GetCriticalCntNoLock(void)
+bool DecideSaUnloadByCriticalCnt(void)
 {
-    /* Caller must hold g_criticalLock. */
-    return static_cast<int32_t>(g_count);
+    std::lock_guard<std::mutex> autoLock(g_criticalLock);
+    g_saIsUnloading = (g_count == 0) ? true : false;
+    return g_saIsUnloading;
 }
 
 void SetStatusIsStopping(bool isStopping)

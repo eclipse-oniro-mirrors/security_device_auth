@@ -119,6 +119,10 @@ static uint32_t DeleteSessionInner(KeyAgreeSession *session)
             (sessionNode->session->sessionId == session->sessionId)) {
             SessionNode tempSessionNode;
             HC_VECTOR_POPELEMENT(&g_SessionNodeVec, &tempSessionNode, index);
+            if (tempSessionNode.spekeSession != NULL) {
+                /* The vector drops its own reference; outstanding getSession refs keep it alive. */
+                tempSessionNode.spekeSession->refCnt--;
+            }
             UnlockHcMutex(g_sessionMutex);
             return HC_SUCCESS;
         }
@@ -151,11 +155,34 @@ static SpekeSession *GetSessionInner(KeyAgreeSession *session)
         if ((sessionNode != NULL) && (sessionNode->session != NULL) &&
             (sessionNode->session->sessionId == session->sessionId)) {
             spekeSession = sessionNode->spekeSession;
+            spekeSession->refCnt++;
             break;
         }
     }
     UnlockHcMutex(g_sessionMutex);
     return spekeSession;
+}
+
+void ReleaseSpekeSessionRef(SpekeSession *spekeSession)
+{
+    if (spekeSession == NULL) {
+        return;
+    }
+    if (EnsureSessionMutex() != HC_SUCCESS) {
+        /* Mutex unavailable: the session was never published, no concurrent access is possible. */
+        DestroySpekeSession(spekeSession);
+        return;
+    }
+    (void)LockHcMutex(g_sessionMutex);
+    if (spekeSession->refCnt > 0) {
+        spekeSession->refCnt--;
+    }
+    bool needDestroy = (spekeSession->refCnt == 0);
+    UnlockHcMutex(g_sessionMutex);
+    if (needDestroy) {
+        /* Last reference: nobody else can reach the session (node already popped). */
+        DestroySpekeSession(spekeSession);
+    }
 }
 
 static KeyAgreeSessionManager g_sessionManager = {

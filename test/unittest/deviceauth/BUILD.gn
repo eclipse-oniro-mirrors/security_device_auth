@@ -651,11 +651,17 @@ ohos_unittest("deviceauth_unit_test") {
     "unit_test/source/common_lib_test.cpp",
     "unit_test/source/key_management_test.cpp",
     "unit_test/source/group_data_manager_test.cpp",
+    "source/key_agree_sdk_test.cpp",
   ]
+  sources += key_agree_sdk_file
+  include_dirs += key_agree_inc_path
 
   defines = [
     "P2P_PAKE_DL_PRIME_LEN_384",
+    "P2P_PAKE_DL_PRIME_LEN_256",
     "P2P_PAKE_EC_TYPE",
+    "P2P_PAKE_EC_PRIME_P256",
+    "P2P_PAKE_EC_PRIME_X25519",
     "ENABLE_EC_SPEKE",
     "ENABLE_ISO",
     "ENABLE_AUTH_CODE_IMPORT",
