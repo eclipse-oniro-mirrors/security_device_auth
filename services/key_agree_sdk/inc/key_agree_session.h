@@ -84,6 +84,9 @@ typedef struct SpekeSessionT {
     VersionInfo versionInfo;
     Uint8Buff deviceId;
     Uint8Buff sharedSecret;
+    /* Reference count guarded by g_sessionMutex: vector holds one ref after addSession;
+     * each getSession caller holds one ref and must release it via ReleaseSpekeSessionRef. */
+    uint32_t refCnt;
     int32_t (*processProtocolAgree)(struct SpekeSessionT *spekeSession, const KeyAgreeBlob *in, KeyAgreeBlob *out);
     int32_t (*processSession)(struct SpekeSessionT *spekeSession, const KeyAgreeBlob *in, KeyAgreeBlob *out);
     int32_t (*initSpekeSession)(struct SpekeSessionT *spekeSession, KeyAgreeProtocol protocol);

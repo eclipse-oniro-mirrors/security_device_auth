@@ -30,6 +30,7 @@ extern "C" {
 #endif
 
 KeyAgreeSessionManager *GetManagerInstance(void);
+void ReleaseSpekeSessionRef(SpekeSession *spekeSession);
 
 #ifdef __cplusplus
 }

@@ -967,5 +967,6 @@ SpekeSession *CreateSpekeSession(int32_t osAccountId)
     spekeSession->protocol = KEYAGREE_PROTOCOL_ANY;
     spekeSession->isFinish = false;
     spekeSession->step = STEP_INIT;
+    spekeSession->refCnt = 1;
     return spekeSession;
 }
